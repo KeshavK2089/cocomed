@@ -3,8 +3,51 @@ import {
   Camera, History, Settings, Upload, X, Share2, ChevronDown, 
   Trash2, AlertTriangle, Info, Pill, Home, Globe, Sparkles, 
   ShieldCheck, Sun, HelpCircle, Palmtree, CheckCircle2, 
-  RefreshCw, Stethoscope 
+  RefreshCw, Stethoscope, AlertOctagon 
 } from 'lucide-react';
+
+// --- ERROR BOUNDARY (Layer 1: Prevents App Crashes) ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("App Crash Caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-slate-50">
+          <div className="bg-red-100 p-4 rounded-full mb-4">
+            <AlertOctagon size={48} className="text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Something went wrong</h2>
+          <p className="text-slate-600 mb-6">We encountered an issue displaying the results for this medication.</p>
+          <div className="bg-white p-4 rounded-lg border border-slate-200 mb-6 w-full max-w-md overflow-auto">
+             <code className="text-xs text-red-500 font-mono">{this.state.error?.toString()}</code>
+          </div>
+          <button 
+            onClick={() => {
+                this.setState({ hasError: false });
+                window.location.reload();
+            }} 
+            className="px-6 py-3 bg-slate-900 text-white rounded-full font-bold shadow-lg hover:bg-black transition-all"
+          >
+            Restart App
+          </button>
+        </div>
+      );
+    }
+    return this.props.children; 
+  }
+}
 
 // --- SYSTEM CONFIGURATION ---
 
@@ -24,34 +67,29 @@ const getApiKey = () => {
 // *** MOBILE CONFIGURATION ***
 const VERCEL_BACKEND_URL = "https://cocomed.vercel.app"; 
 
-// --- DATA SANITIZER (PREVENTS CRASHES) ---
+// --- DATA SANITIZER (Layer 2: Cleans AI Data) ---
 const sanitizeScanData = (data) => {
   if (!data) return null;
   
-  // Force value to be a string
+  // Helper to safely convert anything to a string
   const safeString = (val) => {
     if (val === null || val === undefined) return "N/A";
     if (typeof val === 'string') return val;
-    if (typeof val === 'object') return JSON.stringify(val); // Safety net for objects
+    if (typeof val === 'number') return String(val);
+    if (Array.isArray(val)) return val.join(", ");
+    if (typeof val === 'object') {
+        return val.text || val.value || val.content || JSON.stringify(val); 
+    }
     return String(val);
   };
 
-  // Force value to be an array of strings
+  // Helper to safely convert anything to a flat array of strings
   const safeArray = (arr) => {
     if (!arr) return [];
     if (!Array.isArray(arr)) {
-        // If it's a single string, make it an array
-        if (typeof arr === 'string') return [arr];
-        return []; 
+        return [safeString(arr)];
     }
-    return arr.map(item => {
-      if (typeof item === 'string') return item;
-      if (typeof item === 'object' && item !== null) {
-        // If AI returns [{text: "warning"}], extract the text
-        return item.text || item.value || item.description || JSON.stringify(item);
-      }
-      return String(item);
-    }).filter(Boolean);
+    return arr.map(item => safeString(item)).filter(Boolean);
   };
 
   return {
@@ -171,6 +209,7 @@ export default function MedScanApp() {
     return value || path;
   };
 
+  // Smart AI Translation
   useEffect(() => {
     const checkAndTranslate = async () => {
       if (currentScreen === 'result' && scanResult && scanResult.languageCode !== language && !isTranslating && !isLoading) {
@@ -180,8 +219,11 @@ export default function MedScanApp() {
     checkAndTranslate();
   }, [currentScreen, language, scanResult]);
 
+  // Backend API Call (Development & Production)
   const callBackendAPI = async (promptText, base64Image) => {
     const envApiKey = getApiKey();
+    
+    // Local Development
     if (envApiKey && process.env.NODE_ENV === 'development') {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${envApiKey}`, {
             method: 'POST',
@@ -199,6 +241,7 @@ export default function MedScanApp() {
         return data;
     }
 
+    // Mobile / Production
     const response = await fetch(`${VERCEL_BACKEND_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,10 +275,7 @@ export default function MedScanApp() {
       "sideEffects": ["side effect 1", "side effect 2", "side effect 3"],
       "warnings": ["warning 1", "warning 2"]
     }
-    IMPORTANT RULES:
-    1. Respond ONLY in ${languageNames[language]}
-    2. Keep the information consistent with the image provided.
-    3. If you cannot read the medicine name clearly, set brandName to "Unable to read"`;
+    IMPORTANT RULES: Respond ONLY in ${languageNames[language]}. Keep the information consistent with the image provided.`;
 
     try {
       const rawBase64 = fullImageUri.split(',')[1] || fullImageUri;
@@ -244,7 +284,7 @@ export default function MedScanApp() {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
-        const cleanData = sanitizeScanData(parsedResult); // Use Safe Data
+        const cleanData = sanitizeScanData(parsedResult); // SANITIZE
         const updatedScanData = {
           ...cleanData,
           scannedAt: new Date().toISOString(),
@@ -265,12 +305,13 @@ export default function MedScanApp() {
   };
 
   const handleShare = async (data) => {
+    const warningsText = Array.isArray(data.warnings) ? data.warnings.join(', ') : String(data.warnings);
     const textToShare = `
 💊 *${data.brandName}* (${data.strength})
 🔬 ${data.genericName}
 📋 *Purpose:* ${data.purpose}
 🕰 *Instructions:* ${data.howToTake}
-⚠️ *Warnings:* ${Array.isArray(data.warnings) ? data.warnings.join(', ') : data.warnings}
+⚠️ *Warnings:* ${warningsText}
 -- Scanned with CocoMed`.trim();
 
     if (navigator.share) {
@@ -297,13 +338,7 @@ export default function MedScanApp() {
       "sideEffects": ["side effect 1", "side effect 2", "side effect 3"],
       "warnings": ["warning 1", "warning 2"]
     }
-    IMPORTANT RULES:
-    1. Use simple, everyday language a non-medical person can understand
-    2. Respond ONLY in ${languageNames[language]}
-    3. If you cannot read the medicine name clearly, set brandName to "Unable to read"
-    4. Always include common side effects and important warnings
-    5. Do not make up information - only include what you can determine from the image
-    6. If this is not a medicine package, respond with {"error": "This does not appear to be a medicine package"}`;
+    IMPORTANT RULES: Use simple language. Respond ONLY in ${languageNames[language]}. If cannot read name, set brandName to "Unable to read".`;
 
     try {
       const data = await callBackendAPI(promptText, base64Image);
@@ -313,8 +348,8 @@ export default function MedScanApp() {
         const parsedResult = JSON.parse(jsonMatch[0]);
         if (parsedResult.error) { alert(parsedResult.error); setIsLoading(false); return; }
         
-        const cleanData = sanitizeScanData(parsedResult); // Use Safe Data
-
+        const cleanData = sanitizeScanData(parsedResult); // SANITIZE
+        
         const scanData = {
           ...cleanData,
           id: Date.now(), 
@@ -348,14 +383,11 @@ export default function MedScanApp() {
     }
   };
 
+  // --- UI COMPONENTS (Layer 3: Defensive Rendering) ---
   const NavButton = ({ icon: Icon, label, screen }) => {
     const isActive = currentScreen === screen;
     return (
-      <button 
-        onClick={() => setCurrentScreen(screen)}
-        className={`flex flex-col items-center justify-center py-3 px-6 rounded-2xl transition-all duration-300 relative overflow-hidden group w-full md:w-auto
-          ${isActive ? 'text-emerald-900 bg-emerald-100/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-      >
+      <button onClick={() => setCurrentScreen(screen)} className={`flex flex-col items-center justify-center py-3 px-6 rounded-2xl transition-all duration-300 relative overflow-hidden group w-full md:w-auto ${isActive ? 'text-emerald-900 bg-emerald-100/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>
         <Icon size={24} className={`mb-1 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
         <span className="text-[10px] font-bold tracking-wider uppercase">{label}</span>
         {isActive && <div className="absolute bottom-0 w-1/3 h-1 bg-emerald-500 rounded-t-full" />}
@@ -369,9 +401,8 @@ export default function MedScanApp() {
     let containerClass = "border-emerald-100 bg-white/60 shadow-emerald-100/50";
     let headerClass = "text-emerald-900";
     let iconColor = "text-emerald-500";
-    if (type === 'warning') { 
-      Icon = AlertTriangle; containerClass = "border-red-100 bg-red-50/50 shadow-red-100/50"; headerClass = "text-red-900"; iconColor = "text-red-500";
-    }
+    if (type === 'warning') { Icon = AlertTriangle; containerClass = "border-red-100 bg-red-50/50 shadow-red-100/50"; headerClass = "text-red-900"; iconColor = "text-red-500"; }
+    
     return (
       <div className={`mb-4 rounded-3xl overflow-hidden border backdrop-blur-sm shadow-sm transition-all duration-300 ${containerClass}`}>
         <button onClick={() => setExpanded(!expanded)} className={`w-full flex items-center justify-between p-5 ${headerClass}`}>
@@ -383,11 +414,17 @@ export default function MedScanApp() {
         </button>
         <div className={`transition-all duration-500 ease-in-out overflow-hidden ${expanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="p-5 pt-0 text-slate-600 text-base leading-relaxed font-medium">
-            {/* Safe rendering: check if content is array. If not (string/sanitized object), display as text */}
             {Array.isArray(content) ? (
-                <ul className="space-y-3">{content.map((item, i) => <li key={i} className="flex items-start gap-3 bg-white/50 p-2 rounded-lg"><span className="w-2 h-2 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />{item}</li>)}</ul>
+                <ul className="space-y-3">{content.map((item, i) => (
+                    <li key={i} className="flex items-start gap-3 bg-white/50 p-2 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />
+                        {/* Final Safety Check: Ensure item is a string even if sanitizer failed */}
+                        {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+                    </li>
+                ))}</ul>
             ) : (
-                <p>{String(content)}</p>
+                // Final Safety Check: Ensure content is a string
+                <p>{typeof content === 'object' ? JSON.stringify(content) : String(content)}</p>
             )}
           </div>
         </div>
@@ -395,9 +432,10 @@ export default function MedScanApp() {
     );
   };
 
-  // ... Header, HelpScreen, HomeScreen ...
-  // (These components are unchanged from previous valid versions, re-included for completeness)
-  
+  // --- SCREENS ---
+  // (Header, HelpScreen, HomeScreen, ResultScreen, HistoryScreen, SettingsScreen)
+  // These are large blocks, included in full to ensure no missing pieces.
+
   const Header = () => (
     <div className="bg-white/90 backdrop-blur-xl border-b border-emerald-50 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
       <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentScreen('home')}>
@@ -627,23 +665,26 @@ export default function MedScanApp() {
     </div>
   );
 
+  // Main Render with Error Boundary
   return (
-    <div className="flex flex-col min-h-screen w-full bg-[#f8fafc] text-slate-800 font-sans selection:bg-emerald-100 selection:text-emerald-900">
-      <Header />
-      <main className="flex-1 flex flex-col w-full relative">
-        {currentScreen === 'home' && <HomeScreen />}
-        {currentScreen === 'result' && <ResultScreen />}
-        {currentScreen === 'history' && <HistoryScreen />}
-        {currentScreen === 'settings' && <SettingsScreen />}
-        {currentScreen === 'help' && <HelpScreen />}
-      </main>
-      <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-slate-100 flex justify-around items-center fixed bottom-0 w-full pb-safe pt-2 z-50 transition-transform duration-500 ${currentScreen === 'result' ? 'translate-y-full' : 'translate-y-0'}`}>
-          <NavButton icon={Home} label={t('nav.home')} screen="home" />
-          <NavButton icon={History} label={t('nav.history')} screen="history" />
-          <NavButton icon={HelpCircle} label={t('nav.guide')} screen="help" />
-          <NavButton icon={Settings} label={t('nav.settings')} screen="settings" />
+    <ErrorBoundary>
+      <div className="flex flex-col min-h-screen w-full bg-[#f8fafc] text-slate-800 font-sans selection:bg-emerald-100 selection:text-emerald-900">
+        <Header />
+        <main className="flex-1 flex flex-col w-full relative">
+          {currentScreen === 'home' && <HomeScreen />}
+          {currentScreen === 'result' && <ResultScreen />}
+          {currentScreen === 'history' && <HistoryScreen />}
+          {currentScreen === 'settings' && <SettingsScreen />}
+          {currentScreen === 'help' && <HelpScreen />}
+        </main>
+        <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-slate-100 flex justify-around items-center fixed bottom-0 w-full pb-safe pt-2 z-50 transition-transform duration-500 ${currentScreen === 'result' ? 'translate-y-full' : 'translate-y-0'}`}>
+            <NavButton icon={Home} label={t('nav.home')} screen="home" />
+            <NavButton icon={History} label={t('nav.history')} screen="history" />
+            <NavButton icon={HelpCircle} label={t('nav.guide')} screen="help" />
+            <NavButton icon={Settings} label={t('nav.settings')} screen="settings" />
+        </div>
+        <div className={`md:hidden h-24 ${currentScreen === 'result' ? 'hidden' : 'block'}`}></div>
       </div>
-      <div className={`md:hidden h-24 ${currentScreen === 'result' ? 'hidden' : 'block'}`}></div>
-    </div>
+    </ErrorBoundary>
   );
 }
