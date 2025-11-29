@@ -9,17 +9,24 @@ import {
 // --- SYSTEM CONFIGURATION ---
 
 // FOR VERCEL DEPLOYMENT:
-// 1. Go to your Vercel Project Settings > Environment Variables.
-// 2. Add a new variable named 'REACT_APP_GEMINI_API_KEY' (for CRA) or 'NEXT_PUBLIC_GEMINI_API_KEY' (for Next.js).
-// 3. Paste your Gemini API key as the value.
 const getApiKey = () => {
-  // Check common environment variable patterns for React/Next.js
+  // Check common environment variable patterns
   if (typeof process !== 'undefined' && process.env) {
     if (process.env.REACT_APP_GEMINI_API_KEY) return process.env.REACT_APP_GEMINI_API_KEY;
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   }
+  // Vite specific check using safe access
+  try {
+    if (import.meta && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+      return import.meta.env.VITE_GEMINI_API_KEY;
+    }
+  } catch (e) {
+    // Ignore error if import.meta is not available
+  }
   return ""; 
 };
+
+const apiKey = getApiKey();
 
 // --- LOCALE DATA ---
 const LOCALE_DATA = {
@@ -142,8 +149,8 @@ export default function MedScanApp() {
   const callBackendAPI = async (promptText, base64Image) => {
     // Check if we are in development mode with a direct key available
     const envApiKey = getApiKey();
+    // Use direct call ONLY if we have a key locally (dev mode), otherwise stick to backend
     if (envApiKey && process.env.NODE_ENV === 'development') {
-        // Fallback for local testing if you don't have the Vercel backend running locally
         console.log("Using direct API call for development");
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${envApiKey}`, {
             method: 'POST',
