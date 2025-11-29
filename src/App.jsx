@@ -8,25 +8,21 @@ import {
 
 // --- SYSTEM CONFIGURATION ---
 
-// FOR VERCEL DEPLOYMENT:
 const getApiKey = () => {
-  // Check common environment variable patterns
   if (typeof process !== 'undefined' && process.env) {
     if (process.env.REACT_APP_GEMINI_API_KEY) return process.env.REACT_APP_GEMINI_API_KEY;
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   }
-  // Vite specific check using safe access
   try {
     if (import.meta && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
       return import.meta.env.VITE_GEMINI_API_KEY;
     }
-  } catch (e) {
-    // Ignore error if import.meta is not available
-  }
+  } catch (e) {}
   return ""; 
 };
 
-const apiKey = getApiKey();
+// *** MOBILE CONFIGURATION ***
+const VERCEL_BACKEND_URL = "https://cocomed.vercel.app"; 
 
 // --- LOCALE DATA ---
 const LOCALE_DATA = {
@@ -99,6 +95,45 @@ const languageNames = {
   en: 'English', ta: 'Tamil', hi: 'Hindi', te: 'Telugu', kn: 'Kannada', ml: 'Malayalam'
 };
 
+// --- HELPER FUNCTIONS ---
+
+// Safety function to clean up AI responses that might be messy
+// This prevents the "White Screen of Death" if the AI returns objects/nulls instead of strings
+const sanitizeScanData = (data) => {
+  if (!data) return null;
+  
+  const safeString = (val) => {
+    if (val === null || val === undefined) return "N/A";
+    if (typeof val === 'string') return val;
+    return String(val);
+  };
+
+  const safeArray = (arr) => {
+    if (!Array.isArray(arr)) return [];
+    return arr.map(item => {
+      if (typeof item === 'string') return item;
+      if (typeof item === 'object' && item !== null) {
+        // Try to extract text content if the AI returned an object
+        return item.text || item.value || item.description || JSON.stringify(item);
+      }
+      return String(item);
+    }).filter(Boolean);
+  };
+
+  return {
+    ...data,
+    brandName: safeString(data.brandName),
+    genericName: safeString(data.genericName),
+    manufacturer: safeString(data.manufacturer),
+    dosageForm: safeString(data.dosageForm),
+    strength: safeString(data.strength),
+    purpose: safeString(data.purpose),
+    howToTake: safeString(data.howToTake),
+    sideEffects: safeArray(data.sideEffects),
+    warnings: safeArray(data.warnings),
+  };
+};
+
 // --- APP COMPONENT ---
 export default function MedScanApp() {
   const [currentScreen, setCurrentScreen] = useState('home'); 
@@ -131,18 +166,23 @@ export default function MedScanApp() {
     return value || path;
   };
 
+  // --- SMART AI TRANSLATION ---
   useEffect(() => {
     const checkAndTranslate = async () => {
       if (currentScreen === 'result' && scanResult && scanResult.languageCode !== language && !isTranslating && !isLoading) {
+        console.log(`Auto-translating scan from ${scanResult.languageCode} to ${language}`);
         await translateCurrentScan(scanResult.imageUri, scanResult.id);
       }
     };
     checkAndTranslate();
   }, [currentScreen, language, scanResult]);
 
+  // Unified function to call the Vercel Backend
   const callBackendAPI = async (promptText, base64Image) => {
     const envApiKey = getApiKey();
+    // LOCAL DEV: Use direct API key if available
     if (envApiKey && process.env.NODE_ENV === 'development') {
+        console.log("Using direct API call for development");
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${envApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -159,7 +199,9 @@ export default function MedScanApp() {
         return data;
     }
 
-    const response = await fetch('/api/analyze', {
+    // PRODUCTION / MOBILE: Call Vercel Backend
+    console.log("Calling Backend:", `${VERCEL_BACKEND_URL}/api/analyze`);
+    const response = await fetch(`${VERCEL_BACKEND_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,9 +219,11 @@ export default function MedScanApp() {
 
   const translateCurrentScan = async (fullImageUri, scanId) => {
     setIsTranslating(true);
+    
     const promptText = `You are a helpful pharmacist assistant analyzing a medicine package image.
     TASK: Extract medicine information and provide a patient-friendly explanation.
     RESPOND IN: ${languageNames[language]} language only.
+    
     Extract and provide the following in JSON format:
     {
       "brandName": "exact brand name from package",
@@ -192,6 +236,7 @@ export default function MedScanApp() {
       "sideEffects": ["side effect 1", "side effect 2", "side effect 3"],
       "warnings": ["warning 1", "warning 2"]
     }
+    
     IMPORTANT RULES:
     1. Respond ONLY in ${languageNames[language]}
     2. Keep the information consistent with the image provided.
@@ -202,15 +247,19 @@ export default function MedScanApp() {
       const data = await callBackendAPI(promptText, rawBase64);
       const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
+        const cleanData = sanitizeScanData(parsedResult); // SANITIZE HERE
+        
         const updatedScanData = {
-          ...parsedResult,
+          ...cleanData,
           scannedAt: new Date().toISOString(),
           imageUri: fullImageUri,
           languageCode: language,
           id: scanId
         };
+
         setScanResult(updatedScanData);
         setHistory(prev => prev.map(item => item.id === scanId ? updatedScanData : item));
       } else {
@@ -218,6 +267,7 @@ export default function MedScanApp() {
       }
     } catch (error) {
       console.error("Translation failed", error);
+      // alert("Translation failed. Please check your connection.");
     } finally {
       setIsTranslating(false);
     }
@@ -227,23 +277,40 @@ export default function MedScanApp() {
     const textToShare = `
 💊 *${data.brandName}* (${data.strength})
 🔬 ${data.genericName}
+
 📋 *Purpose:* ${data.purpose}
 🕰 *Instructions:* ${data.howToTake}
 ⚠️ *Warnings:* ${data.warnings.join(', ')}
--- Scanned with CocoMed`.trim();
+
+-- Scanned with CocoMed
+    `.trim();
 
     if (navigator.share) {
-      try { await navigator.share({ title: `Medicine Info: ${data.brandName}`, text: textToShare }); } catch (error) { console.log('Error sharing:', error); }
+      try {
+        await navigator.share({
+          title: `Medicine Info: ${data.brandName}`,
+          text: textToShare,
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
     } else {
-      try { await navigator.clipboard.writeText(textToShare); alert('Medicine info copied to clipboard!'); } catch (err) { alert('Could not copy text.'); }
+      try {
+        await navigator.clipboard.writeText(textToShare);
+        alert('Medicine info copied to clipboard!');
+      } catch (err) {
+        alert('Could not copy text.');
+      }
     }
   };
 
   const analyzeMedicine = async (base64Image) => {
     setIsLoading(true);
+
     const promptText = `You are a helpful pharmacist assistant analyzing a medicine package image.
     TASK: Extract medicine information and provide a patient-friendly explanation.
     RESPOND IN: ${languageNames[language]} language only.
+    
     Extract and provide the following in JSON format:
     {
       "brandName": "exact brand name from package",
@@ -256,6 +323,7 @@ export default function MedScanApp() {
       "sideEffects": ["side effect 1", "side effect 2", "side effect 3"],
       "warnings": ["warning 1", "warning 2"]
     }
+    
     IMPORTANT RULES:
     1. Use simple, everyday language a non-medical person can understand
     2. Respond ONLY in ${languageNames[language]}
@@ -266,18 +334,28 @@ export default function MedScanApp() {
 
     try {
       const data = await callBackendAPI(promptText, base64Image);
+      
       const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
       if (jsonMatch) {
         const parsedResult = JSON.parse(jsonMatch[0]);
-        if (parsedResult.error) { alert(parsedResult.error); setIsLoading(false); return; }
+        if (parsedResult.error) {
+           alert(parsedResult.error);
+           setIsLoading(false);
+           return;
+        }
+        
+        const cleanData = sanitizeScanData(parsedResult); // SANITIZE HERE
+
         const scanData = {
-          ...parsedResult,
+          ...cleanData,
           id: Date.now(), 
           scannedAt: new Date().toISOString(),
           imageUri: `data:image/jpeg;base64,${base64Image}`,
           languageCode: language 
         };
+
         setScanResult(scanData);
         setHistory(prev => [scanData, ...prev]);
         setCurrentScreen('result');
@@ -304,13 +382,17 @@ export default function MedScanApp() {
     }
   };
 
+  // --- UI COMPONENTS ---
+  
   const NavButton = ({ icon: Icon, label, screen }) => {
     const isActive = currentScreen === screen;
     return (
       <button 
         onClick={() => setCurrentScreen(screen)}
         className={`flex flex-col items-center justify-center py-3 px-6 rounded-2xl transition-all duration-300 relative overflow-hidden group w-full md:w-auto
-          ${isActive ? 'text-emerald-900 bg-emerald-100/50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+          ${isActive 
+            ? 'text-emerald-900 bg-emerald-100/50' 
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
       >
         <Icon size={24} className={`mb-1 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
         <span className="text-[10px] font-bold tracking-wider uppercase">{label}</span>
@@ -325,26 +407,49 @@ export default function MedScanApp() {
     let containerClass = "border-emerald-100 bg-white/60 shadow-emerald-100/50";
     let headerClass = "text-emerald-900";
     let iconColor = "text-emerald-500";
+    
     if (type === 'warning') { 
-      Icon = AlertTriangle; containerClass = "border-red-100 bg-red-50/50 shadow-red-100/50"; headerClass = "text-red-900"; iconColor = "text-red-500";
+      Icon = AlertTriangle; 
+      containerClass = "border-red-100 bg-red-50/50 shadow-red-100/50"; 
+      headerClass = "text-red-900";
+      iconColor = "text-red-500";
     }
+    
     return (
       <div className={`mb-4 rounded-3xl overflow-hidden border backdrop-blur-sm shadow-sm transition-all duration-300 ${containerClass}`}>
-        <button onClick={() => setExpanded(!expanded)} className={`w-full flex items-center justify-between p-5 ${headerClass}`}>
+        <button 
+          onClick={() => setExpanded(!expanded)}
+          className={`w-full flex items-center justify-between p-5 ${headerClass}`}
+        >
           <div className="flex items-center gap-3 font-bold tracking-tight text-lg">
-            <div className={`p-2 rounded-full ${type === 'warning' ? 'bg-red-100' : 'bg-emerald-100'}`}><Icon size={18} className={iconColor} /></div>
+            <div className={`p-2 rounded-full ${type === 'warning' ? 'bg-red-100' : 'bg-emerald-100'}`}>
+               <Icon size={18} className={iconColor} />
+            </div>
             {title}
           </div>
           <ChevronDown size={20} className={`transition-transform duration-300 text-slate-400 ${expanded ? 'rotate-180' : ''}`} />
         </button>
         <div className={`transition-all duration-500 ease-in-out overflow-hidden ${expanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="p-5 pt-0 text-slate-600 text-base leading-relaxed font-medium">
-            {Array.isArray(content) ? <ul className="space-y-3">{content.map((item, i) => <li key={i} className="flex items-start gap-3 bg-white/50 p-2 rounded-lg"><span className="w-2 h-2 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />{item}</li>)}</ul> : <p>{content}</p>}
+            {Array.isArray(content) ? (
+              <ul className="space-y-3">
+                {content.map((item, i) => (
+                  <li key={i} className="flex items-start gap-3 bg-white/50 p-2 rounded-lg">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 mt-2 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{content}</p>
+            )}
           </div>
         </div>
       </div>
     );
   };
+
+  // --- SCREENS ---
 
   const Header = () => (
     <div className="bg-white/90 backdrop-blur-xl border-b border-emerald-50 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
@@ -359,16 +464,22 @@ export default function MedScanApp() {
           <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest hidden sm:block mt-1">{t('app.tagline')}</p>
         </div>
       </div>
+      
+      {/* Desktop Nav - Using t() for labels */}
       <div className="hidden md:flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-full">
          <button onClick={() => setCurrentScreen('home')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${currentScreen === 'home' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{t('nav.home')}</button>
          <button onClick={() => setCurrentScreen('history')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${currentScreen === 'history' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{t('nav.history')}</button>
          <button onClick={() => setCurrentScreen('help')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${currentScreen === 'help' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{t('nav.guide')}</button>
          <button onClick={() => setCurrentScreen('settings')} className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${currentScreen === 'settings' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{t('nav.settings')}</button>
       </div>
+
       <div className="flex items-center gap-2">
-         <button onClick={() => setCurrentScreen('help')} className="md:hidden p-2 text-slate-400 hover:text-emerald-500 transition-colors"><HelpCircle size={24} /></button>
+         <button onClick={() => setCurrentScreen('help')} className="md:hidden p-2 text-slate-400 hover:text-emerald-500 transition-colors">
+            <HelpCircle size={24} />
+         </button>
         <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-          <Globe size={12} /><span>{LANGUAGES.find(l => l.code === language)?.nativeName}</span>
+          <Globe size={12} />
+          <span>{LANGUAGES.find(l => l.code === language)?.nativeName}</span>
         </div>
       </div>
     </div>
@@ -377,10 +488,13 @@ export default function MedScanApp() {
   const HelpScreen = () => (
     <div className="flex-1 p-6 md:p-12 max-w-5xl mx-auto w-full">
        <div className="text-center mb-12">
-         <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full mb-4 animate-bounce-slow"><Sparkles size={32} /></div>
+         <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full mb-4 animate-bounce-slow">
+           <Sparkles size={32} />
+         </div>
          <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-4">{t('help.title')}</h1>
          <p className="text-slate-500 text-lg max-w-2xl mx-auto">Use our advanced AI to instantly understand your medication. It's safe, private, and easy.</p>
        </div>
+
        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative mb-16">
          <div className="hidden md:block absolute top-12 left-0 right-0 h-1 bg-gradient-to-r from-emerald-100 via-teal-100 to-emerald-100 -z-10 transform -translate-y-1/2"></div>
          {[1, 2, 3].map((step) => (
@@ -396,14 +510,25 @@ export default function MedScanApp() {
            </div>
          ))}
        </div>
+
+       {/* Safety First Section */}
        <div className="bg-red-50 rounded-[2.5rem] p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 border border-red-100 mb-16">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 text-red-500"><Stethoscope size={40} /></div>
-          <div className="text-center md:text-left"><h2 className="text-2xl font-bold text-red-900 mb-2">{t('help.safetyTitle')}</h2><p className="text-red-800/80 text-lg">{t('help.safetyDesc')}</p></div>
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 text-red-500">
+             <Stethoscope size={40} />
+          </div>
+          <div className="text-center md:text-left">
+            <h2 className="text-2xl font-bold text-red-900 mb-2">{t('help.safetyTitle')}</h2>
+            <p className="text-red-800/80 text-lg">{t('help.safetyDesc')}</p>
+          </div>
        </div>
+
        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-[3rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl shadow-emerald-200">
          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-           <div className="text-left"><h2 className="text-2xl md:text-3xl font-bold mb-2">Ready to start?</h2><p className="text-emerald-100 text-lg">Your personal health assistant is one tap away.</p></div>
+           <div className="text-left">
+             <h2 className="text-2xl md:text-3xl font-bold mb-2">Ready to start?</h2>
+             <p className="text-emerald-100 text-lg">Your personal health assistant is one tap away.</p>
+           </div>
            <button onClick={() => setCurrentScreen('home')} className="bg-white text-emerald-600 font-bold py-4 px-10 rounded-full shadow-lg hover:bg-emerald-50 transition-colors transform hover:scale-105">Scan Now</button>
          </div>
        </div>
@@ -412,21 +537,35 @@ export default function MedScanApp() {
 
   const HomeScreen = () => (
     <div className="flex flex-col md:flex-row gap-8 max-w-7xl mx-auto w-full p-6 md:p-12 items-center">
+      {/* Left Column: Scanner */}
       <div className="w-full md:w-5/12 flex flex-col">
          <div className="mb-8 pl-4">
-           <div className="flex items-center gap-2 text-emerald-600 mb-2"><Sun size={20} className="animate-spin-slow" /><span className="text-xs font-bold uppercase tracking-widest">{t('home.greeting')}</span></div>
-           <h1 className="text-4xl md:text-6xl font-black text-slate-800 mb-6 leading-tight">{t('home.title')}</h1>
-           <p className="text-slate-500 font-medium text-lg leading-relaxed border-l-4 border-emerald-200 pl-4">Instant identification powered by AI.</p>
+           <div className="flex items-center gap-2 text-emerald-600 mb-2">
+              <Sun size={20} className="animate-spin-slow" />
+              <span className="text-xs font-bold uppercase tracking-widest">{t('home.greeting')}</span>
+           </div>
+           <h1 className="text-4xl md:text-6xl font-black text-slate-800 mb-6 leading-tight">
+             {t('home.title')}
+           </h1>
+           <p className="text-slate-500 font-medium text-lg leading-relaxed border-l-4 border-emerald-200 pl-4">
+             Instant identification powered by nature-inspired AI.
+           </p>
          </div>
+
          <div className="group relative bg-white rounded-[3rem] shadow-2xl shadow-emerald-100 border border-emerald-50 p-10 flex flex-col items-center justify-center gap-8 flex-1 min-h-[500px] overflow-hidden">
+            {/* Background pattern */}
             <div className="absolute inset-0 opacity-[0.4] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
             <div className="absolute -top-20 -right-20 w-60 h-60 bg-emerald-50 rounded-full blur-3xl opacity-50"></div>
             <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-teal-50 rounded-full blur-3xl opacity-50"></div>
+            
             <div className="relative z-10 w-full flex flex-col items-center">
               <div className="w-56 h-56 rounded-full flex items-center justify-center mb-8 relative">
                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-100 to-teal-50 rounded-[40%_60%_70%_30%/40%_50%_60%_50%] animate-blob"></div>
-                 <div className="absolute inset-4 bg-white rounded-[50%_40%_30%_70%/60%_30%_70%_40%] shadow-inner flex items-center justify-center"><Camera size={64} className="text-emerald-500" /></div>
+                 <div className="absolute inset-4 bg-white rounded-[50%_40%_30%_70%/60%_30%_70%_40%] shadow-inner flex items-center justify-center">
+                    <Camera size={64} className="text-emerald-500" />
+                 </div>
               </div>
+              
               {isLoading && (
                 <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-md rounded-[3rem] flex flex-col items-center justify-center">
                   <div className="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
@@ -434,33 +573,75 @@ export default function MedScanApp() {
                 </div>
               )}
             </div>
+            
             <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+            
             <div className="w-full max-w-sm space-y-4 z-10">
-              <button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="w-full bg-slate-900 text-white font-bold py-5 px-8 rounded-full shadow-xl shadow-slate-300 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 group"><Camera size={24} strokeWidth={2.5} className="group-hover:rotate-12 transition-transform" /><span className="text-lg tracking-wide">{isLoading ? 'PROCESSING...' : t('home.capture')}</span></button>
-              <button onClick={() => fileInputRef.current?.click()} className="w-full bg-white border-2 border-slate-100 text-slate-600 font-bold py-4 px-8 rounded-full hover:bg-slate-50 hover:border-slate-200 transition-colors flex items-center justify-center gap-2"><Upload size={20} />{t('home.upload')}</button>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                className="w-full bg-slate-900 text-white font-bold py-5 px-8 rounded-full shadow-xl shadow-slate-300 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 group"
+              >
+                <Camera size={24} strokeWidth={2.5} className="group-hover:rotate-12 transition-transform" />
+                <span className="text-lg tracking-wide">{isLoading ? 'PROCESSING...' : t('home.capture')}</span>
+              </button>
+              
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-white border-2 border-slate-100 text-slate-600 font-bold py-4 px-8 rounded-full hover:bg-slate-50 hover:border-slate-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <Upload size={20} />
+                {t('home.upload')}
+              </button>
             </div>
          </div>
       </div>
+
+      {/* Right Column: Gallery */}
       <div className="w-full md:w-7/12 flex flex-col justify-center pl-0 md:pl-12">
         <div className="flex items-center justify-between mb-8">
-          <h3 className="font-black text-slate-800 text-2xl flex items-center gap-3"><div className="bg-emerald-100 p-2 rounded-xl text-emerald-600"><History size={24} /></div>{t('home.recentScans')}</h3>
+          <h3 className="font-black text-slate-800 text-2xl flex items-center gap-3">
+             <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600"><History size={24} /></div>
+             {t('home.recentScans')}
+          </h3>
           <button onClick={() => setCurrentScreen('help')} className="text-emerald-600 font-bold text-sm hover:underline">How to use?</button>
         </div>
+        
         {history.length === 0 ? (
            <div className="flex-1 bg-white border border-slate-100 shadow-sm rounded-[2.5rem] p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-             <div className="w-24 h-24 bg-gradient-to-tr from-emerald-50 to-teal-50 rounded-full flex items-center justify-center mb-6"><Sparkles size={32} className="text-emerald-300" /></div>
+             <div className="w-24 h-24 bg-gradient-to-tr from-emerald-50 to-teal-50 rounded-full flex items-center justify-center mb-6">
+                <Sparkles size={32} className="text-emerald-300" />
+             </div>
              <p className="text-slate-400 font-medium max-w-xs text-lg">{t('history.empty')}</p>
              <button onClick={() => setCurrentScreen('help')} className="mt-6 text-emerald-600 font-bold text-sm bg-emerald-50 px-6 py-2 rounded-full">View Guide</button>
            </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
              {history.slice(0, 4).map((item, idx) => (
-               <div key={idx} onClick={() => { setScanResult(item); setCurrentScreen('result'); }} className="group bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 transition-all duration-300 cursor-pointer relative overflow-hidden">
+               <div 
+                 key={idx} 
+                 onClick={() => { setScanResult(item); setCurrentScreen('result'); }} 
+                 className="group bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 transition-all duration-300 cursor-pointer relative overflow-hidden"
+               >
                  <div className="flex items-start gap-4">
-                   <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-inner relative"><img src={item.imageUri} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" /></div>
-                   <div className="flex-1 min-w-0 pt-1"><p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1"><CheckCircle2 size={10} />{new Date(item.scannedAt).toLocaleDateString()}</p><p className="font-bold text-slate-800 text-lg leading-tight truncate mb-1">{item.brandName}</p><span className="inline-block bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-full">{item.dosageForm}</span></div>
+                   <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-inner relative">
+                      <img src={item.imageUri} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                   </div>
+                   <div className="flex-1 min-w-0 pt-1">
+                     <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                       <CheckCircle2 size={10} />
+                       {new Date(item.scannedAt).toLocaleDateString()}
+                     </p>
+                     <p className="font-bold text-slate-800 text-lg leading-tight truncate mb-1">{item.brandName}</p>
+                     <span className="inline-block bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-full">{item.dosageForm}</span>
+                   </div>
                  </div>
-                 <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-4 group-hover:translate-x-0 duration-300"><div className="bg-emerald-500 text-white p-2 rounded-full shadow-lg"><ChevronDown size={16} className="-rotate-90" /></div></div>
+                 
+                 <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-4 group-hover:translate-x-0 duration-300">
+                    <div className="bg-emerald-500 text-white p-2 rounded-full shadow-lg">
+                       <ChevronDown size={16} className="-rotate-90" />
+                    </div>
+                 </div>
                </div>
              ))}
           </div>
@@ -474,32 +655,98 @@ export default function MedScanApp() {
     return (
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto bg-white min-h-screen md:min-h-0 md:my-8 md:rounded-[3rem] shadow-2xl shadow-emerald-100/50 overflow-hidden flex flex-col md:flex-row border border-slate-100">
+          
+          {/* Image Sidebar */}
           <div className="w-full md:w-5/12 relative bg-slate-900 group">
             <img src={scanResult.imageUri} className="w-full h-full object-cover opacity-90 transition-opacity duration-700 group-hover:opacity-60" alt="Medicine" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
-            <button onClick={() => setCurrentScreen('home')} className="absolute top-8 left-8 flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-sm font-bold text-white shadow-lg hover:bg-white/20 transition-all border border-white/10"><X size={16} /> CLOSE</button>
-            {isTranslating && (<div className="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center"><div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><p className="mt-4 text-emerald-400 font-bold animate-pulse">{t('result.translating')}</p></div>)}
+            
+            {/* Desktop Close */}
+            <button 
+              onClick={() => setCurrentScreen('home')} 
+              className="absolute top-8 left-8 flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-sm font-bold text-white shadow-lg hover:bg-white/20 transition-all border border-white/10"
+            >
+              <X size={16} /> CLOSE
+            </button>
+
+            {/* Translation Indicator */}
+            {isTranslating && (
+                <div className="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="mt-4 text-emerald-400 font-bold animate-pulse">{t('result.translating')}</p>
+                </div>
+            )}
+
             <div className="absolute bottom-0 left-0 right-0 p-10 text-white">
-              <div className="flex flex-wrap items-center gap-3 mb-6"><span className="px-4 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-widest shadow-lg shadow-emerald-900/20">{scanResult.dosageForm}</span><span className="px-4 py-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-full uppercase tracking-widest border border-white/10">{scanResult.strength}</span></div>
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <span className="px-4 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-full uppercase tracking-widest shadow-lg shadow-emerald-900/20">
+                  {scanResult.dosageForm}
+                </span>
+                <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-full uppercase tracking-widest border border-white/10">
+                   {scanResult.strength}
+                </span>
+              </div>
               <h1 className="text-5xl font-black leading-none mb-3 tracking-tight">{scanResult.brandName}</h1>
               <p className="text-slate-300 font-medium text-xl border-l-2 border-emerald-500 pl-4">{scanResult.genericName}</p>
             </div>
           </div>
+
+          {/* Content Area */}
           <div className="flex-1 p-8 md:p-12 bg-white relative">
             <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-50">
-              <div className="flex items-center gap-3"><div className="bg-emerald-50 p-2 rounded-full"><ShieldCheck size={20} className="text-emerald-600" /></div><div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('result.manufacturer')}</p><p className="font-bold text-slate-800">{scanResult.manufacturer}</p></div></div>
+              <div className="flex items-center gap-3">
+                 <div className="bg-emerald-50 p-2 rounded-full">
+                    <ShieldCheck size={20} className="text-emerald-600" />
+                 </div>
+                 <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('result.manufacturer')}</p>
+                    <p className="font-bold text-slate-800">{scanResult.manufacturer}</p>
+                 </div>
+              </div>
               <div className="flex gap-2">
-                  {scanResult.languageCode !== language && !isTranslating && (<button onClick={() => translateCurrentScan(scanResult.imageUri, scanResult.id)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors" title="Retry Translation"><RefreshCw size={16} /></button>)}
-                  <button onClick={() => handleShare(scanResult)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm hover:bg-emerald-100 transition-colors"><Share2 size={16} />{t('result.share')}</button>
+                  {scanResult.languageCode !== language && !isTranslating && (
+                      <button 
+                        onClick={() => translateCurrentScan(scanResult.imageUri, scanResult.id)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+                        title="Retry Translation"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                  )}
+                  <button 
+                    onClick={() => handleShare(scanResult)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 font-bold text-sm hover:bg-emerald-100 transition-colors"
+                  >
+                    <Share2 size={16} />
+                    {t('result.share')}
+                  </button>
               </div>
             </div>
+
             <div className="grid grid-cols-1 gap-6 mb-8">
               <InfoCard title={t('result.whatIsItFor')} content={scanResult.purpose} />
               <InfoCard title={t('result.howToTake')} content={scanResult.howToTake} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2"><InfoCard title={t('result.sideEffects')} content={scanResult.sideEffects} type="warning" /><InfoCard title={t('result.warnings')} content={scanResult.warnings} type="warning" /></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <InfoCard title={t('result.sideEffects')} content={scanResult.sideEffects} type="warning" />
+                <InfoCard title={t('result.warnings')} content={scanResult.warnings} type="warning" />
+              </div>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3 items-start mb-8"><AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" /><p className="text-sm text-amber-800 font-medium">{t('result.medicalDisclaimer')}</p></div>
-            <div className="flex justify-center"><button onClick={() => setCurrentScreen('home')} className="w-full md:w-auto px-12 py-4 bg-slate-900 text-white font-bold rounded-full shadow-xl shadow-slate-200 hover:bg-black transition-all transform active:scale-[0.99] flex items-center justify-center gap-2"><Camera size={20} />{t('result.scanAnother')}</button></div>
+
+            {/* Medical Disclaimer Banner */}
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex gap-3 items-start mb-8">
+               <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+               <p className="text-sm text-amber-800 font-medium">{t('result.medicalDisclaimer')}</p>
+            </div>
+
+            <div className="flex justify-center">
+               <button 
+                 onClick={() => setCurrentScreen('home')}
+                 className="w-full md:w-auto px-12 py-4 bg-slate-900 text-white font-bold rounded-full shadow-xl shadow-slate-200 hover:bg-black transition-all transform active:scale-[0.99] flex items-center justify-center gap-2"
+               >
+                 <Camera size={20} />
+                 {t('result.scanAnother')}
+               </button>
+            </div>
           </div>
         </div>
       </div>
@@ -509,28 +756,76 @@ export default function MedScanApp() {
   const HistoryScreen = () => (
     <div className="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full">
       <div className="flex items-center justify-between mb-12">
-        <div><h1 className="text-4xl font-black text-slate-800 mb-2">{t('history.title')}</h1><p className="text-slate-400 font-medium">Your personal medicine archive</p></div>
-        {history.length > 0 && (<button onClick={() => { if(confirm(t('history.clearConfirm'))) setHistory([]); }} className="text-xs font-bold text-red-500 hover:text-red-700 px-5 py-2.5 bg-red-50 hover:bg-red-100 rounded-full transition-colors flex items-center gap-2"><Trash2 size={14} />CLEAR ALL</button>)}
+        <div>
+          <h1 className="text-4xl font-black text-slate-800 mb-2">{t('history.title')}</h1>
+          <p className="text-slate-400 font-medium">Your personal medicine archive</p>
+        </div>
+        {history.length > 0 && (
+           <button 
+             onClick={() => { if(confirm(t('history.clearConfirm'))) setHistory([]); }}
+             className="text-xs font-bold text-red-500 hover:text-red-700 px-5 py-2.5 bg-red-50 hover:bg-red-100 rounded-full transition-colors flex items-center gap-2"
+           >
+             <Trash2 size={14} />
+             CLEAR ALL
+           </button>
+        )}
       </div>
+      
       {history.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[50vh] text-center bg-white rounded-[3rem] border border-slate-100 shadow-sm p-8">
-          <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center mb-6"><History size={48} className="text-slate-300" /></div>
+          <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+            <History size={48} className="text-slate-300" />
+          </div>
           <p className="text-slate-500 font-medium text-lg mb-6">{t('history.empty')}</p>
-          <button onClick={() => setCurrentScreen('home')} className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-emerald-700 transition-colors">Start Scanning</button>
+          <button 
+            onClick={() => setCurrentScreen('home')}
+            className="bg-emerald-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-emerald-700 transition-colors"
+          >
+            Start Scanning
+          </button>
         </div>
       ) : (
         <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
           {history.map((item, idx) => (
-            <div key={idx} className="break-inside-avoid bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 transition-all duration-500 cursor-pointer overflow-hidden group" onClick={() => { setScanResult(item); setCurrentScreen('result'); }}>
+            <div 
+              key={idx} 
+              className="break-inside-avoid bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-100/50 transition-all duration-500 cursor-pointer overflow-hidden group"
+              onClick={() => { setScanResult(item); setCurrentScreen('result'); }}
+            >
               <div className="h-56 relative overflow-hidden">
                 <img src={item.imageUri} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80"></div>
-                <div className="absolute bottom-6 left-6 text-white w-full pr-12"><h3 className="font-black text-2xl leading-none mb-2">{item.brandName}</h3><div className="flex items-center gap-2"><span className="text-[10px] font-bold bg-white/20 backdrop-blur-md px-2 py-1 rounded">{new Date(item.scannedAt).toLocaleDateString()}</span><span className="text-[10px] font-bold bg-emerald-500 px-2 py-1 rounded">{item.dosageForm}</span></div></div>
-                <button onClick={(e) => { e.stopPropagation(); if(confirm('Remove artifact?')) { setHistory(prev => prev.filter((_, i) => i !== idx)); } }} className="absolute top-4 right-4 p-2 bg-black/20 text-white rounded-full hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
+                <div className="absolute bottom-6 left-6 text-white w-full pr-12">
+                   <h3 className="font-black text-2xl leading-none mb-2">{item.brandName}</h3>
+                   <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold bg-white/20 backdrop-blur-md px-2 py-1 rounded">
+                        {new Date(item.scannedAt).toLocaleDateString()}
+                      </span>
+                      <span className="text-[10px] font-bold bg-emerald-500 px-2 py-1 rounded">
+                        {item.dosageForm}
+                      </span>
+                   </div>
+                </div>
+                <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     if(confirm('Remove artifact?')) {
+                       setHistory(prev => prev.filter((_, i) => i !== idx));
+                     }
+                   }}
+                   className="absolute top-4 right-4 p-2 bg-black/20 text-white rounded-full hover:bg-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
               <div className="p-6">
                  <p className="text-slate-500 text-sm line-clamp-3 font-medium leading-relaxed">{item.purpose}</p>
-                 <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between"><span className="text-xs font-bold text-emerald-600">View Details</span><div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors"><ChevronDown size={16} className="-rotate-90" /></div></div>
+                 <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-600">View Details</span>
+                    <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                       <ChevronDown size={16} className="-rotate-90" />
+                    </div>
+                 </div>
               </div>
             </div>
           ))}
@@ -542,33 +837,63 @@ export default function MedScanApp() {
   const SettingsScreen = () => (
     <div className="flex-1 p-6 md:p-12 max-w-4xl mx-auto w-full">
       <h1 className="text-4xl font-black text-slate-800 mb-10">{t('settings.title')}</h1>
+
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* Language Column */}
         <div className="md:col-span-8 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8 border-b border-slate-50 bg-slate-50/50">
-             <div className="flex items-center gap-3"><div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><Globe size={20} /></div><h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">{t('settings.language')}</h2></div>
+             <div className="flex items-center gap-3">
+               <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><Globe size={20} /></div>
+               <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">{t('settings.language')}</h2>
+             </div>
              <p className="text-slate-400 text-xs mt-2 ml-1">Future scans will be analyzed in the selected language.</p>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 p-4">
             {LANGUAGES.map((lang, idx) => (
               <label key={lang.code} className={`flex items-center justify-between p-4 m-2 rounded-2xl cursor-pointer transition-all border-2 ${language === lang.code ? 'border-emerald-500 bg-emerald-50/50' : 'border-transparent hover:bg-slate-50'}`}>
-                <div className="flex flex-col"><span className={`font-bold text-lg ${language === lang.code ? 'text-emerald-900' : 'text-slate-600'}`}>{lang.nativeName}</span><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{lang.name}</span></div>
+                <div className="flex flex-col">
+                  <span className={`font-bold text-lg ${language === lang.code ? 'text-emerald-900' : 'text-slate-600'}`}>{lang.nativeName}</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{lang.name}</span>
+                </div>
                 {language === lang.code && <div className="w-4 h-4 bg-emerald-500 rounded-full shadow-lg shadow-emerald-200 ring-2 ring-offset-2 ring-emerald-300" />}
-                <input type="radio" name="language" checked={language === lang.code} onChange={() => setLanguage(lang.code)} className="hidden" />
+                <input 
+                  type="radio" 
+                  name="language" 
+                  checked={language === lang.code} 
+                  onChange={() => setLanguage(lang.code)}
+                  className="hidden"
+                />
               </label>
             ))}
           </div>
         </div>
+
+        {/* Info Column */}
         <div className="md:col-span-4 space-y-6">
           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-slate-300 relative overflow-hidden">
              <div className="relative z-10">
-               <div className="flex items-center justify-between mb-8"><span className="font-bold text-slate-400">{t('settings.version')}</span><span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full">v3.0 Nature</span></div>
-               <div className="flex gap-4 items-start mb-6 opacity-80"><ShieldCheck size={24} className="text-emerald-400 flex-shrink-0" /><p className="text-xs leading-relaxed font-medium">{t('settings.disclaimer')}</p></div>
+               <div className="flex items-center justify-between mb-8">
+                  <span className="font-bold text-slate-400">{t('settings.version')}</span>
+                  <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full">v3.0 Nature</span>
+               </div>
+               
+               <div className="flex gap-4 items-start mb-6 opacity-80">
+                 <ShieldCheck size={24} className="text-emerald-400 flex-shrink-0" />
+                 <p className="text-xs leading-relaxed font-medium">
+                   {t('settings.disclaimer')}
+                 </p>
+               </div>
              </div>
+             {/* Decor */}
              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl"></div>
           </div>
+          
           <div className="bg-emerald-50 rounded-[2.5rem] p-8 border border-emerald-100">
              <h3 className="font-bold text-emerald-900 mb-2">Privacy First</h3>
-             <p className="text-xs text-emerald-700/80 leading-relaxed font-medium">Your health data stays on your device. We use secure runtime environments for all AI processing.</p>
+             <p className="text-xs text-emerald-700/80 leading-relaxed font-medium">
+               Your health data stays on your device. We use secure runtime environments for all AI processing.
+             </p>
           </div>
         </div>
       </div>
@@ -578,6 +903,7 @@ export default function MedScanApp() {
   return (
     <div className="flex flex-col min-h-screen w-full bg-[#f8fafc] text-slate-800 font-sans selection:bg-emerald-100 selection:text-emerald-900">
       <Header />
+      
       <main className="flex-1 flex flex-col w-full relative">
         {currentScreen === 'home' && <HomeScreen />}
         {currentScreen === 'result' && <ResultScreen />}
@@ -585,12 +911,15 @@ export default function MedScanApp() {
         {currentScreen === 'settings' && <SettingsScreen />}
         {currentScreen === 'help' && <HelpScreen />}
       </main>
+
+      {/* Mobile Bottom Navigation - Using t() for labels */}
       <div className={`md:hidden bg-white/90 backdrop-blur-lg border-t border-slate-100 flex justify-around items-center fixed bottom-0 w-full pb-safe pt-2 z-50 transition-transform duration-500 ${currentScreen === 'result' ? 'translate-y-full' : 'translate-y-0'}`}>
           <NavButton icon={Home} label={t('nav.home')} screen="home" />
           <NavButton icon={History} label={t('nav.history')} screen="history" />
           <NavButton icon={HelpCircle} label={t('nav.guide')} screen="help" />
           <NavButton icon={Settings} label={t('nav.settings')} screen="settings" />
       </div>
+      
       <div className={`md:hidden h-24 ${currentScreen === 'result' ? 'hidden' : 'block'}`}></div>
     </div>
   );
