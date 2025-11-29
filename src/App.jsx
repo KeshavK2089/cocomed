@@ -416,7 +416,7 @@ export default function MedScanApp() {
          <div className="mb-8 pl-4">
            <div className="flex items-center gap-2 text-emerald-600 mb-2"><Sun size={20} className="animate-spin-slow" /><span className="text-xs font-bold uppercase tracking-widest">{t('home.greeting')}</span></div>
            <h1 className="text-4xl md:text-6xl font-black text-slate-800 mb-6 leading-tight">{t('home.title')}</h1>
-           <p className="text-slate-500 font-medium text-lg leading-relaxed border-l-4 border-emerald-200 pl-4">Instant identification powered by nature-inspired AI.</p>
+           <p className="text-slate-500 font-medium text-lg leading-relaxed border-l-4 border-emerald-200 pl-4">Instant identification powered by AI.</p>
          </div>
          <div className="group relative bg-white rounded-[3rem] shadow-2xl shadow-emerald-100 border border-emerald-50 p-10 flex flex-col items-center justify-center gap-8 flex-1 min-h-[500px] overflow-hidden">
             <div className="absolute inset-0 opacity-[0.4] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
