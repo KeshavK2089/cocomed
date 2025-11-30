@@ -1,140 +1,94 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Camera, History, Settings, X, Share2, Trash2, AlertTriangle, Pill, Home, Globe, Sparkles, ShieldCheck, CheckCircle2, RefreshCw, AlertOctagon, XCircle, BookOpen, Lock, Calendar, ChevronRight, ArrowLeft, Heart, Clock, MapPin, Upload, Scan, Zap, Shield, Eye, Star, Layers, Fingerprint, Image, ChevronDown } from 'lucide-react';
+import { Camera, History, Settings, X, Share2, Trash2, AlertTriangle, Pill, Home, Globe, Sparkles, ShieldCheck, CheckCircle2, RefreshCw, AlertOctagon, XCircle, BookOpen, Lock, Calendar, ChevronRight, ArrowLeft, Heart, Clock, MapPin, Upload, Scan, Zap, Shield, Eye, Star, Layers, Fingerprint, Image, ChevronDown, Info, Users, Lightbulb, FileText, Activity, ThermometerSun, Baby, Coffee } from 'lucide-react';
 
 // ============================================================================
-// NEXT-GEN ANIMATED CANVAS (Used for both Splash & Scanning)
+// PROFESSIONAL ROTATING GLOBE
 // ============================================================================
-const NextGenCanvas = ({ size = 300 }) => {
+const RotatingGlobe = ({ size = 160 }) => {
   const canvasRef = useRef(null);
   
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const w = canvas.width = size * 1.5;
-    const h = canvas.height = size * 1.5;
-    let time = 0;
+    const w = canvas.width = size * 2;
+    const h = canvas.height = size * 2;
+    const cx = w / 2, cy = h / 2, radius = size * 0.7;
+    let rotation = 0;
     let animId;
     
-    const particles = Array.from({ length: 80 }, () => ({
-      x: Math.random() * w, y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5,
-      size: Math.random() * 2.5 + 0.5, hue: Math.random() * 60 + 140
-    }));
-    
     const animate = () => {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+      ctx.clearRect(0, 0, w, h);
+      
+      // Outer glow
+      const glow = ctx.createRadialGradient(cx, cy, radius * 0.8, cx, cy, radius * 1.3);
+      glow.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
       ctx.fillRect(0, 0, w, h);
       
-      // Particle network
-      particles.forEach((p, i) => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > w) p.vx *= -1;
-        if (p.y < 0 || p.y > h) p.vy *= -1;
-        
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
-        gradient.addColorStop(0, `hsla(${p.hue}, 80%, 65%, 0.9)`);
-        gradient.addColorStop(1, 'transparent');
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        
-        particles.slice(i + 1).forEach(p2 => {
-          const dx = p.x - p2.x, dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 70) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `hsla(160, 70%, 50%, ${(70 - dist) / 180})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        });
-      });
+      // Globe base
+      const globeGrad = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, 0, cx, cy, radius);
+      globeGrad.addColorStop(0, '#10b981');
+      globeGrad.addColorStop(0.5, '#059669');
+      globeGrad.addColorStop(1, '#047857');
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = globeGrad;
+      ctx.fill();
       
-      // Central DNA helix
-      const cx = w / 2, cy = h / 2;
-      for (let i = 0; i < 36; i++) {
-        const t = (i / 36) * Math.PI * 5 + time * 2;
-        const y = (i / 36) * 180 - 90 + cy;
-        const r = 35 + Math.sin(time + i * 0.15) * 8;
-        
-        const x1 = cx + Math.sin(t) * r;
-        const x2 = cx + Math.sin(t + Math.PI) * r;
-        const z1 = Math.cos(t), z2 = Math.cos(t + Math.PI);
-        
-        // Glow spheres
-        const g1 = ctx.createRadialGradient(x1, y, 0, x1, y, 12 + z1 * 6);
-        g1.addColorStop(0, `hsla(160, 100%, ${65 + z1 * 15}%, 1)`);
-        g1.addColorStop(0.4, `hsla(160, 100%, 50%, 0.5)`);
-        g1.addColorStop(1, 'transparent');
-        ctx.beginPath();
-        ctx.arc(x1, y, 8 + z1 * 4, 0, Math.PI * 2);
-        ctx.fillStyle = g1;
-        ctx.fill();
-        
-        const g2 = ctx.createRadialGradient(x2, y, 0, x2, y, 12 + z2 * 6);
-        g2.addColorStop(0, `hsla(280, 100%, ${65 + z2 * 15}%, 1)`);
-        g2.addColorStop(0.4, `hsla(280, 100%, 50%, 0.5)`);
-        g2.addColorStop(1, 'transparent');
-        ctx.beginPath();
-        ctx.arc(x2, y, 8 + z2 * 4, 0, Math.PI * 2);
-        ctx.fillStyle = g2;
-        ctx.fill();
-        
-        // Core dots
-        ctx.beginPath();
-        ctx.arc(x1, y, 3 + z1 * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(160, 100%, ${80 + z1 * 10}%, 1)`;
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.arc(x2, y, 3 + z2 * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(280, 100%, ${80 + z2 * 10}%, 1)`;
-        ctx.fill();
-        
-        // Connectors
-        if (i % 3 === 0 && z1 > -0.2) {
-          const grad = ctx.createLinearGradient(x1, y, x2, y);
-          grad.addColorStop(0, `hsla(160, 100%, 60%, 0.7)`);
-          grad.addColorStop(0.5, `hsla(220, 100%, 65%, 0.8)`);
-          grad.addColorStop(1, `hsla(280, 100%, 60%, 0.7)`);
-          ctx.beginPath();
-          ctx.moveTo(x1, y); ctx.lineTo(x2, y);
-          ctx.strokeStyle = grad;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-        }
-      }
-      
-      // Orbital rings
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+      // Latitude lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 1;
-      for (let i = 0; i < 3; i++) {
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const y = cy + Math.sin(lat * Math.PI / 180) * radius;
+        const latRadius = Math.cos(lat * Math.PI / 180) * radius;
         ctx.beginPath();
-        ctx.ellipse(cx, cy, 65 + i * 20, 25 + i * 8, time * 0.3 + i * 0.6, 0, Math.PI * 2);
+        ctx.ellipse(cx, y, latRadius, latRadius * 0.15, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
       
-      // Scan line
-      const scanY = ((time * 60) % (h + 40)) - 20;
-      const scanGrad = ctx.createLinearGradient(0, scanY - 20, 0, scanY + 20);
-      scanGrad.addColorStop(0, 'transparent');
-      scanGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.25)');
-      scanGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = scanGrad;
-      ctx.fillRect(0, scanY - 20, w, 40);
+      // Longitude lines (rotating)
+      for (let lon = 0; lon < 180; lon += 30) {
+        const angle = (lon + rotation) * Math.PI / 180;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, Math.abs(Math.cos(angle)) * radius, radius, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 + Math.abs(Math.cos(angle)) * 0.2})`;
+        ctx.stroke();
+      }
       
-      time += 0.018;
+      // Medical cross
+      const crossSize = radius * 0.35;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(cx - crossSize * 0.15, cy - crossSize * 0.5, crossSize * 0.3, crossSize);
+      ctx.fillRect(cx - crossSize * 0.5, cy - crossSize * 0.15, crossSize, crossSize * 0.3);
+      
+      // Shine
+      const shine = ctx.createRadialGradient(cx - radius * 0.4, cy - radius * 0.4, 0, cx - radius * 0.4, cy - radius * 0.4, radius * 0.6);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      shine.addColorStop(1, 'transparent');
+      ctx.fillStyle = shine;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Orbiting dot
+      const orbitAngle = rotation * 0.03;
+      const orbitX = cx + Math.cos(orbitAngle) * (radius + 15);
+      const orbitY = cy + Math.sin(orbitAngle) * (radius + 15) * 0.3;
+      ctx.beginPath();
+      ctx.arc(orbitX, orbitY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#34d399';
+      ctx.fill();
+      
+      rotation += 0.8;
       animId = requestAnimationFrame(animate);
     };
     animate();
     return () => cancelAnimationFrame(animId);
   }, [size]);
   
-  return <canvas ref={canvasRef} style={{ width: size, height: size }} className="rounded-full" />;
+  return <canvas ref={canvasRef} style={{ width: size, height: size }} />;
 };
 
 // ============================================================================
@@ -142,91 +96,47 @@ const NextGenCanvas = ({ size = 300 }) => {
 // ============================================================================
 const SplashScreen = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState(0);
   
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(p => {
-        if (p >= 100) { clearInterval(interval); setTimeout(onComplete, 300); return 100; }
-        return p + 2;
+        if (p >= 100) { clearInterval(interval); setTimeout(onComplete, 200); return 100; }
+        return p + 3;
       });
-    }, 40);
+    }, 35);
     return () => clearInterval(interval);
   }, [onComplete]);
   
-  useEffect(() => {
-    if (progress > 30) setPhase(1);
-    if (progress > 60) setPhase(2);
-    if (progress > 90) setPhase(3);
-  }, [progress]);
-  
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500 rounded-full blur-[150px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-500 rounded-full blur-[150px] animate-pulse" style={{ animationDelay: '1s' }} />
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 flex flex-col items-center justify-center">
+      <div className="mb-8">
+        <RotatingGlobe size={140} />
       </div>
-      
-      <div className="absolute opacity-50">
-        <NextGenCanvas size={320} />
-      </div>
-      
-      <div className="relative z-10 text-center">
-        <div className="mb-8 relative">
-          <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-emerald-500/50" style={{ transform: `scale(${0.8 + progress * 0.004})` }}>
-            <Pill className="text-white" size={44} />
-          </div>
-          <div className="absolute -inset-4 rounded-[2rem] border border-emerald-400/30 animate-ping" style={{ animationDuration: '2s' }} />
+      <h1 className="text-3xl font-bold text-white mb-1">MedScan AI</h1>
+      <p className="text-emerald-300/70 text-sm mb-8">Global Medicine Intelligence</p>
+      <div className="w-56">
+        <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-200" style={{ width: `${progress}%` }} />
         </div>
-        
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-emerald-200 to-white bg-clip-text text-transparent mb-2">MedScan AI</h1>
-        <p className="text-emerald-300/70 text-sm mb-10 tracking-widest uppercase">Next Generation Scanner</p>
-        
-        <div className="w-64 mx-auto">
-          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
-            <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 rounded-full transition-all duration-300 relative" style={{ width: `${progress}%` }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-            </div>
-          </div>
-          <div className="mt-4 flex justify-between text-xs">
-            <span className={`transition-colors ${phase >= 0 ? 'text-emerald-400' : 'text-slate-600'}`}>Initialize</span>
-            <span className={`transition-colors ${phase >= 1 ? 'text-emerald-400' : 'text-slate-600'}`}>Load AI</span>
-            <span className={`transition-colors ${phase >= 2 ? 'text-emerald-400' : 'text-slate-600'}`}>Ready</span>
-          </div>
-        </div>
+        <p className="text-slate-400 text-xs text-center mt-3">{progress < 100 ? 'Loading...' : 'Ready'}</p>
       </div>
-      <style>{`@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } } .animate-shimmer { animation: shimmer 1.5s infinite; }`}</style>
     </div>
   );
 };
 
 // ============================================================================
-// SCANNING ANIMATION (Uses same NextGenCanvas)
+// SCANNING ANIMATION
 // ============================================================================
-const ScanningAnimation = ({ lang, t }) => (
-  <div className="flex flex-col items-center py-4">
-    <div className="relative">
-      <div className="absolute -inset-8 bg-gradient-to-r from-emerald-500/20 via-violet-500/20 to-emerald-500/20 rounded-full blur-2xl animate-pulse" />
-      <div className="relative rounded-full overflow-hidden border-2 border-emerald-500/30 shadow-2xl shadow-emerald-500/20 bg-slate-900">
-        <NextGenCanvas size={220} />
-      </div>
-      <div className="absolute inset-0 rounded-full border-2 border-emerald-400/20" style={{ animation: 'spin 4s linear infinite' }} />
+const ScanningAnimation = ({ text }) => (
+  <div className="flex flex-col items-center py-6">
+    <RotatingGlobe size={180} />
+    <h3 className="text-lg font-semibold text-slate-800 mt-4">{text}</h3>
+    <p className="text-slate-500 text-sm mt-1">Analyzing medication data...</p>
+    <div className="flex gap-1.5 mt-4">
+      {[0, 1, 2].map(i => (
+        <div key={i} className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+      ))}
     </div>
-    
-    <div className="mt-6 text-center">
-      <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 bg-clip-text text-transparent">{t(lang, 'home.analyzing')}</h3>
-      <p className="text-slate-500 text-sm mt-1">AI molecular recognition...</p>
-      
-      <div className="flex justify-center gap-2 mt-4">
-        {['Scan', 'Process', 'Identify'].map((s, i) => (
-          <div key={s} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
-            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${i === 0 ? 'bg-emerald-500' : i === 1 ? 'bg-teal-500' : 'bg-cyan-500'}`} style={{ animationDelay: `${i * 200}ms` }} />
-            <span className="text-xs text-slate-600 font-medium">{s}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
   </div>
 );
 
@@ -259,7 +169,25 @@ const sanitizeMedicationData = (data) => {
   if (!data || typeof data !== 'object') return null;
   const safeStr = (v, fb = "N/A") => (typeof v === 'string' && v.trim()) ? v.trim() : fb;
   const safeArr = (a) => Array.isArray(a) ? a.filter(i => typeof i === 'string' && i.trim()).map(i => i.trim()) : [];
-  return { brandName: safeStr(data.brandName), genericName: safeStr(data.genericName), manufacturer: safeStr(data.manufacturer), dosageForm: safeStr(data.dosageForm), strength: safeStr(data.strength), purpose: safeStr(data.purpose), howToTake: safeStr(data.howToTake), sideEffects: safeArr(data.sideEffects), warnings: safeArr(data.warnings), storage: safeStr(data.storage, "Store at room temperature."), interactions: safeArr(data.interactions || data.drugInteractions) };
+  return {
+    brandName: safeStr(data.brandName),
+    genericName: safeStr(data.genericName),
+    manufacturer: safeStr(data.manufacturer),
+    dosageForm: safeStr(data.dosageForm),
+    strength: safeStr(data.strength),
+    purpose: safeStr(data.purpose),
+    howToTake: safeStr(data.howToTake),
+    sideEffects: safeArr(data.sideEffects),
+    warnings: safeArr(data.warnings),
+    storage: safeStr(data.storage, "Store at room temperature."),
+    interactions: safeArr(data.interactions || data.drugInteractions),
+    contraindications: safeArr(data.contraindications),
+    activeIngredients: safeArr(data.activeIngredients),
+    pregnancyWarning: safeStr(data.pregnancyWarning, ""),
+    foodInteractions: safeStr(data.foodInteractions, ""),
+    onsetTime: safeStr(data.onsetTime, ""),
+    duration: safeStr(data.duration, "")
+  };
 };
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -280,53 +208,53 @@ const LANGUAGE_NAMES = { en: 'English', es: 'Spanish', zh: 'Simplified Chinese',
 const UI_STRINGS = {
   en: {
     nav: { home: "Home", history: "History", guide: "Guide", settings: "Settings" },
-    home: { greeting: "Welcome to", title: "MedScan AI", subtitle: "Next-Gen Medicine Intelligence", scan: "Scan Medicine", scanDesc: "Tap to analyze any medication", analyzing: "Analyzing Medicine", recent: "Recent Scans", empty: "No scans yet", emptyDesc: "Start by scanning a medicine", disclaimer: "⚠️ Educational only. Always consult healthcare professionals.", scanCount: "medicines analyzed", camera: "Take Photo", gallery: "Choose from Gallery", cancel: "Cancel" },
-    result: { back: "Back", purpose: "Purpose", howTo: "Dosage", effects: "Side Effects", warnings: "Warnings", storage: "Storage", interactions: "Interactions", disclaimer: "Consult your healthcare provider.", translating: "Translating...", share: "Share" },
-    history: { title: "Medicine Library", subtitle: "Your scan history", noHistory: "No scans yet", noHistoryDesc: "Your scanned medicines appear here", export: "Export", deleteAll: "Clear", newest: "Newest First", oldest: "Oldest First", alphabetical: "A to Z", confirmDelete: "Delete?", confirmDeleteAll: "Clear all?" },
-    settings: { title: "Settings", subtitle: "Preferences", language: "Language", languageDesc: "Select language", clear: "Clear Data", clearDesc: "Remove all scans", privacy: "Privacy", privacyDesc: "Data handling", about: "About", version: "Version 4.0", madeWith: "Made with ♥" },
-    guide: { title: "How It Works", subtitle: "Simple steps", s1: "Capture", s1d: "Point at medicine packaging", s2: "Analyze", s2d: "AI extracts information", s3: "Learn", s3d: "Get comprehensive details", tip: "Pro Tip", tipText: "Good lighting improves accuracy" },
-    privacy: { title: "Privacy", subtitle: "Your data matters", t1: "Processing", d1: "Images analyzed in real-time", t2: "Storage", d2: "Data stays on your device", t3: "Camera", d3: "Used only for scanning", t4: "Disclaimer", d4: "Educational tool only" },
-    errors: { notMedicine: "Not a medicine detected", scanFailed: "Scan failed", networkError: "Network error", generic: "Something went wrong" }
+    home: { greeting: "Welcome to", title: "MedScan AI", subtitle: "Smart Medicine Scanner", scan: "Scan Medicine", scanDesc: "Point camera at any medication", analyzing: "Analyzing", recent: "Recent Scans", empty: "No scans yet", emptyDesc: "Scan your first medicine", disclaimer: "⚠️ For educational purposes only. Always consult a healthcare professional before taking any medication.", scanCount: "medicines scanned", camera: "Take Photo", gallery: "Choose from Gallery", cancel: "Cancel" },
+    result: { back: "Back", purpose: "Purpose & Uses", howTo: "Dosage Instructions", effects: "Side Effects", warnings: "Important Warnings", storage: "Storage", interactions: "Drug Interactions", disclaimer: "Always consult your doctor or pharmacist.", translating: "Translating...", share: "Share", contraindications: "Who Should Not Take", activeIngredients: "Active Ingredients", pregnancy: "Pregnancy & Nursing", food: "Food Interactions", onset: "Takes Effect", duration: "Duration" },
+    history: { title: "Medicine Library", subtitle: "Your scanned medications", noHistory: "No scans yet", noHistoryDesc: "Scanned medicines will appear here", export: "Export", deleteAll: "Clear All", newest: "Newest", oldest: "Oldest", alphabetical: "A-Z", confirmDelete: "Delete this scan?", confirmDeleteAll: "Clear all history?" },
+    settings: { title: "Settings", subtitle: "App preferences", language: "Language", languageDesc: "Select your language", clear: "Clear Data", clearDesc: "Remove all saved scans", privacy: "Privacy Policy", privacyDesc: "How we handle your data", about: "About MedScan AI", version: "Version 4.0", madeWith: "Made with ♥ for better health" },
+    guide: { title: "User Guide", subtitle: "Learn how to use MedScan AI", s1: "Point & Capture", s1d: "Hold your phone steady and point the camera at the medicine label, packaging, or pill bottle. Ensure text is clearly visible.", s2: "AI Analysis", s2d: "Our AI instantly identifies the medication and extracts comprehensive information including usage, dosage, and safety data.", s3: "Review Results", s3d: "Get detailed information about your medicine including purpose, side effects, warnings, and drug interactions.", tip: "Pro Tips", tipText: "For best results, use good lighting and keep the medicine label flat.", features: "Key Features", f1: "Instant Recognition", f1d: "AI identifies medicines in seconds", f2: "Multi-language", f2d: "Results in 5 languages", f3: "Offline History", f3d: "Access past scans anytime", f4: "Privacy First", f4d: "Data stays on your device", safety: "Safety Information", safetyText: "MedScan AI is designed to help you understand your medications better. It does not replace professional medical advice. Always consult your doctor or pharmacist before starting, stopping, or changing any medication.", faq: "Common Questions", q1: "Is my data secure?", a1: "Yes. All scan data is stored locally on your device and never uploaded to external servers.", q2: "How accurate is the scan?", a2: "Our AI provides high accuracy for most medications, but always verify with your pharmacist.", q3: "Can I scan any medicine?", a3: "You can scan most prescription and over-the-counter medications with readable labels." },
+    privacy: { title: "Privacy Policy", subtitle: "Your privacy matters", t1: "Data Processing", d1: "Images are processed in real-time and not stored on our servers", t2: "Local Storage", d2: "Your scan history is stored only on your device", t3: "Camera Access", d3: "Camera is used exclusively for scanning medicines", t4: "No Tracking", d4: "We do not track or collect personal information" },
+    errors: { notMedicine: "This doesn't appear to be a medication", scanFailed: "Scan failed. Please try again", networkError: "Network error. Check your connection", generic: "Something went wrong" }
   },
   es: {
     nav: { home: "Inicio", history: "Historial", guide: "Guía", settings: "Ajustes" },
-    home: { greeting: "Bienvenido a", title: "MedScan AI", subtitle: "Inteligencia Médica Avanzada", scan: "Escanear", scanDesc: "Toca para analizar medicamentos", analyzing: "Analizando", recent: "Recientes", empty: "Sin escaneos", emptyDesc: "Escanea un medicamento", disclaimer: "⚠️ Solo educativo. Consulta profesionales.", scanCount: "medicamentos", camera: "Tomar Foto", gallery: "Elegir de Galería", cancel: "Cancelar" },
-    result: { back: "Volver", purpose: "Propósito", howTo: "Dosis", effects: "Efectos", warnings: "Advertencias", storage: "Almacenamiento", interactions: "Interacciones", disclaimer: "Consulta a tu médico.", translating: "Traduciendo...", share: "Compartir" },
-    history: { title: "Biblioteca", subtitle: "Tu historial", noHistory: "Sin historial", noHistoryDesc: "Tus medicamentos aquí", export: "Exportar", deleteAll: "Borrar", newest: "Recientes", oldest: "Antiguos", alphabetical: "A-Z", confirmDelete: "¿Eliminar?", confirmDeleteAll: "¿Borrar todo?" },
-    settings: { title: "Ajustes", subtitle: "Preferencias", language: "Idioma", languageDesc: "Seleccionar", clear: "Borrar", clearDesc: "Eliminar escaneos", privacy: "Privacidad", privacyDesc: "Datos", about: "Acerca de", version: "Versión 4.0", madeWith: "Hecho con ♥" },
-    guide: { title: "Cómo Funciona", subtitle: "Pasos simples", s1: "Capturar", s1d: "Apunta al empaque", s2: "Analizar", s2d: "IA extrae información", s3: "Aprender", s3d: "Obtén detalles", tip: "Consejo", tipText: "Buena luz mejora resultados" },
-    privacy: { title: "Privacidad", subtitle: "Tus datos importan", t1: "Procesamiento", d1: "Análisis en tiempo real", t2: "Almacenamiento", d2: "Datos en tu dispositivo", t3: "Cámara", d3: "Solo para escanear", t4: "Aviso", d4: "Herramienta educativa" },
-    errors: { notMedicine: "No es medicamento", scanFailed: "Escaneo fallido", networkError: "Error de red", generic: "Algo salió mal" }
+    home: { greeting: "Bienvenido a", title: "MedScan AI", subtitle: "Escáner Inteligente", scan: "Escanear", scanDesc: "Apunta la cámara al medicamento", analyzing: "Analizando", recent: "Recientes", empty: "Sin escaneos", emptyDesc: "Escanea tu primer medicamento", disclaimer: "⚠️ Solo para fines educativos. Siempre consulta a un profesional de salud.", scanCount: "medicamentos", camera: "Tomar Foto", gallery: "Elegir de Galería", cancel: "Cancelar" },
+    result: { back: "Volver", purpose: "Propósito y Usos", howTo: "Instrucciones de Dosis", effects: "Efectos Secundarios", warnings: "Advertencias", storage: "Almacenamiento", interactions: "Interacciones", disclaimer: "Consulta siempre a tu médico.", translating: "Traduciendo...", share: "Compartir", contraindications: "Contraindicaciones", activeIngredients: "Ingredientes Activos", pregnancy: "Embarazo", food: "Interacciones con Alimentos", onset: "Inicio de Efecto", duration: "Duración" },
+    history: { title: "Biblioteca", subtitle: "Tus medicamentos", noHistory: "Sin historial", noHistoryDesc: "Los medicamentos aparecerán aquí", export: "Exportar", deleteAll: "Borrar", newest: "Recientes", oldest: "Antiguos", alphabetical: "A-Z", confirmDelete: "¿Eliminar?", confirmDeleteAll: "¿Borrar todo?" },
+    settings: { title: "Ajustes", subtitle: "Preferencias", language: "Idioma", languageDesc: "Selecciona idioma", clear: "Borrar Datos", clearDesc: "Eliminar escaneos", privacy: "Privacidad", privacyDesc: "Manejo de datos", about: "Acerca de", version: "Versión 4.0", madeWith: "Hecho con ♥" },
+    guide: { title: "Guía de Usuario", subtitle: "Aprende a usar MedScan AI", s1: "Apuntar y Capturar", s1d: "Sostén tu teléfono y apunta al medicamento. Asegúrate que el texto sea visible.", s2: "Análisis IA", s2d: "Nuestra IA identifica el medicamento y extrae información completa.", s3: "Revisar Resultados", s3d: "Obtén información detallada sobre tu medicamento.", tip: "Consejos", tipText: "Usa buena iluminación para mejores resultados.", features: "Características", f1: "Reconocimiento Instantáneo", f1d: "IA identifica en segundos", f2: "Multi-idioma", f2d: "Resultados en 5 idiomas", f3: "Historial Offline", f3d: "Accede sin internet", f4: "Privacidad", f4d: "Datos en tu dispositivo", safety: "Información de Seguridad", safetyText: "MedScan AI te ayuda a entender tus medicamentos. No reemplaza el consejo médico profesional.", faq: "Preguntas Frecuentes", q1: "¿Mis datos están seguros?", a1: "Sí. Los datos se guardan localmente en tu dispositivo.", q2: "¿Qué tan preciso es?", a2: "Alta precisión, pero siempre verifica con tu farmacéutico.", q3: "¿Puedo escanear cualquier medicamento?", a3: "Sí, la mayoría de medicamentos con etiquetas legibles." },
+    privacy: { title: "Privacidad", subtitle: "Tu privacidad importa", t1: "Procesamiento", d1: "Imágenes procesadas en tiempo real", t2: "Almacenamiento Local", d2: "Historial solo en tu dispositivo", t3: "Cámara", d3: "Solo para escanear medicamentos", t4: "Sin Rastreo", d4: "No recolectamos información personal" },
+    errors: { notMedicine: "No parece ser un medicamento", scanFailed: "Escaneo fallido", networkError: "Error de red", generic: "Algo salió mal" }
   },
   zh: {
     nav: { home: "首页", history: "历史", guide: "指南", settings: "设置" },
-    home: { greeting: "欢迎使用", title: "MedScan AI", subtitle: "下一代药物智能", scan: "扫描药物", scanDesc: "点击分析任何药物", analyzing: "分析中", recent: "最近扫描", empty: "暂无扫描", emptyDesc: "开始扫描药物", disclaimer: "⚠️ 仅供教育。请咨询医生。", scanCount: "药物已分析", camera: "拍照", gallery: "从相册选择", cancel: "取消" },
-    result: { back: "返回", purpose: "用途", howTo: "剂量", effects: "副作用", warnings: "警告", storage: "储存", interactions: "相互作用", disclaimer: "请咨询医生。", translating: "翻译中...", share: "分享" },
-    history: { title: "药物库", subtitle: "扫描历史", noHistory: "暂无扫描", noHistoryDesc: "扫描药物将显示在这里", export: "导出", deleteAll: "清除", newest: "最新", oldest: "最旧", alphabetical: "A-Z", confirmDelete: "删除？", confirmDeleteAll: "清除全部？" },
-    settings: { title: "设置", subtitle: "偏好", language: "语言", languageDesc: "选择语言", clear: "清除数据", clearDesc: "删除扫描", privacy: "隐私", privacyDesc: "数据处理", about: "关于", version: "版本 4.0", madeWith: "用♥制作" },
-    guide: { title: "使用方法", subtitle: "简单步骤", s1: "拍摄", s1d: "对准药品", s2: "分析", s2d: "AI提取信息", s3: "学习", s3d: "获取详情", tip: "提示", tipText: "良好光线提高准确性" },
-    privacy: { title: "隐私", subtitle: "数据安全", t1: "处理", d1: "实时分析", t2: "存储", d2: "数据在设备上", t3: "相机", d3: "仅用于扫描", t4: "声明", d4: "教育工具" },
-    errors: { notMedicine: "未检测到药物", scanFailed: "扫描失败", networkError: "网络错误", generic: "出错了" }
+    home: { greeting: "欢迎使用", title: "MedScan AI", subtitle: "智能药物扫描", scan: "扫描药物", scanDesc: "将相机对准药物", analyzing: "分析中", recent: "最近扫描", empty: "暂无扫描", emptyDesc: "扫描您的第一个药物", disclaimer: "⚠️ 仅供教育目的。服药前请咨询医生。", scanCount: "药物已扫描", camera: "拍照", gallery: "从相册选择", cancel: "取消" },
+    result: { back: "返回", purpose: "用途", howTo: "用法用量", effects: "副作用", warnings: "警告", storage: "储存", interactions: "药物相互作用", disclaimer: "请咨询医生或药剂师。", translating: "翻译中...", share: "分享", contraindications: "禁忌症", activeIngredients: "有效成分", pregnancy: "孕期须知", food: "食物相互作用", onset: "起效时间", duration: "持续时间" },
+    history: { title: "药物库", subtitle: "已扫描的药物", noHistory: "暂无记录", noHistoryDesc: "扫描的药物将显示在这里", export: "导出", deleteAll: "清除", newest: "最新", oldest: "最旧", alphabetical: "A-Z", confirmDelete: "删除？", confirmDeleteAll: "清除全部？" },
+    settings: { title: "设置", subtitle: "应用偏好", language: "语言", languageDesc: "选择语言", clear: "清除数据", clearDesc: "删除所有扫描", privacy: "隐私政策", privacyDesc: "数据处理方式", about: "关于", version: "版本 4.0", madeWith: "用♥制作" },
+    guide: { title: "用户指南", subtitle: "了解如何使用", s1: "对准拍摄", s1d: "将手机对准药物标签，确保文字清晰可见。", s2: "AI分析", s2d: "AI即时识别药物并提取完整信息。", s3: "查看结果", s3d: "获取药物的详细信息。", tip: "技巧", tipText: "良好的光线可获得更好的结果。", features: "主要功能", f1: "即时识别", f1d: "AI秒速识别", f2: "多语言", f2d: "5种语言结果", f3: "离线历史", f3d: "随时访问", f4: "隐私优先", f4d: "数据存储在设备上", safety: "安全信息", safetyText: "MedScan AI帮助您了解药物。它不能替代专业医疗建议。", faq: "常见问题", q1: "我的数据安全吗？", a1: "是的，数据仅存储在您的设备上。", q2: "扫描准确吗？", a2: "高准确度，但请向药剂师确认。", q3: "可以扫描任何药物吗？", a3: "可以扫描大多数有可读标签的药物。" },
+    privacy: { title: "隐私政策", subtitle: "您的隐私很重要", t1: "数据处理", d1: "图像实时处理，不存储", t2: "本地存储", d2: "历史仅存储在您的设备上", t3: "相机访问", d3: "仅用于扫描药物", t4: "无追踪", d4: "我们不收集个人信息" },
+    errors: { notMedicine: "这似乎不是药物", scanFailed: "扫描失败", networkError: "网络错误", generic: "出错了" }
   },
   hi: {
     nav: { home: "होम", history: "इतिहास", guide: "गाइड", settings: "सेटिंग्स" },
-    home: { greeting: "स्वागत है", title: "MedScan AI", subtitle: "अगली पीढ़ी की दवा बुद्धिमत्ता", scan: "दवा स्कैन करें", scanDesc: "विश्लेषण के लिए टैप करें", analyzing: "विश्लेषण हो रहा है", recent: "हाल के स्कैन", empty: "कोई स्कैन नहीं", emptyDesc: "दवा स्कैन करें", disclaimer: "⚠️ केवल शैक्षिक। डॉक्टर से परामर्श करें।", scanCount: "दवाएं विश्लेषित", camera: "फोटो लें", gallery: "गैलरी से चुनें", cancel: "रद्द करें" },
-    result: { back: "वापस", purpose: "उद्देश्य", howTo: "खुराक", effects: "दुष्प्रभाव", warnings: "चेतावनी", storage: "भंडारण", interactions: "इंटरैक्शन", disclaimer: "डॉक्टर से परामर्श करें।", translating: "अनुवाद...", share: "साझा करें" },
-    history: { title: "दवा पुस्तकालय", subtitle: "स्कैन इतिहास", noHistory: "कोई स्कैन नहीं", noHistoryDesc: "दवाएं यहां दिखेंगी", export: "निर्यात", deleteAll: "साफ़", newest: "नवीनतम", oldest: "पुराना", alphabetical: "A-Z", confirmDelete: "हटाएं?", confirmDeleteAll: "सब साफ़?" },
-    settings: { title: "सेटिंग्स", subtitle: "प्राथमिकताएं", language: "भाषा", languageDesc: "चुनें", clear: "डेटा साफ़", clearDesc: "स्कैन हटाएं", privacy: "गोपनीयता", privacyDesc: "डेटा", about: "जानकारी", version: "संस्करण 4.0", madeWith: "♥ से बनाया" },
-    guide: { title: "कैसे काम करता है", subtitle: "सरल चरण", s1: "कैप्चर", s1d: "दवा पर इंगित करें", s2: "विश्लेषण", s2d: "AI जानकारी निकालता है", s3: "सीखें", s3d: "विवरण प्राप्त करें", tip: "सुझाव", tipText: "अच्छी रोशनी सटीकता बढ़ाती है" },
-    privacy: { title: "गोपनीयता", subtitle: "आपका डेटा मायने रखता है", t1: "प्रोसेसिंग", d1: "रीयल-टाइम विश्लेषण", t2: "स्टोरेज", d2: "डेटा आपके डिवाइस पर", t3: "कैमरा", d3: "केवल स्कैनिंग के लिए", t4: "अस्वीकरण", d4: "शैक्षिक उपकरण" },
-    errors: { notMedicine: "दवा नहीं मिली", scanFailed: "स्कैन विफल", networkError: "नेटवर्क त्रुटि", generic: "कुछ गलत हुआ" }
+    home: { greeting: "स्वागत है", title: "MedScan AI", subtitle: "स्मार्ट दवा स्कैनर", scan: "दवा स्कैन करें", scanDesc: "कैमरा दवा की ओर करें", analyzing: "विश्लेषण", recent: "हाल के स्कैन", empty: "कोई स्कैन नहीं", emptyDesc: "पहली दवा स्कैन करें", disclaimer: "⚠️ केवल शैक्षिक उद्देश्यों के लिए। दवा लेने से पहले डॉक्टर से परामर्श करें।", scanCount: "दवाएं स्कैन", camera: "फोटो लें", gallery: "गैलरी से चुनें", cancel: "रद्द करें" },
+    result: { back: "वापस", purpose: "उद्देश्य और उपयोग", howTo: "खुराक निर्देश", effects: "दुष्प्रभाव", warnings: "चेतावनी", storage: "भंडारण", interactions: "दवा इंटरैक्शन", disclaimer: "अपने डॉक्टर से परामर्श करें।", translating: "अनुवाद...", share: "साझा करें", contraindications: "किसे नहीं लेनी चाहिए", activeIngredients: "सक्रिय तत्व", pregnancy: "गर्भावस्था", food: "खाद्य इंटरैक्शन", onset: "प्रभाव शुरू", duration: "अवधि" },
+    history: { title: "दवा पुस्तकालय", subtitle: "स्कैन की गई दवाएं", noHistory: "कोई इतिहास नहीं", noHistoryDesc: "स्कैन की गई दवाएं यहां दिखेंगी", export: "निर्यात", deleteAll: "सब हटाएं", newest: "नवीनतम", oldest: "पुराना", alphabetical: "A-Z", confirmDelete: "हटाएं?", confirmDeleteAll: "सब हटाएं?" },
+    settings: { title: "सेटिंग्स", subtitle: "ऐप प्राथमिकताएं", language: "भाषा", languageDesc: "भाषा चुनें", clear: "डेटा साफ़ करें", clearDesc: "सभी स्कैन हटाएं", privacy: "गोपनीयता", privacyDesc: "डेटा प्रबंधन", about: "जानकारी", version: "संस्करण 4.0", madeWith: "♥ से बनाया" },
+    guide: { title: "उपयोगकर्ता गाइड", subtitle: "उपयोग करना सीखें", s1: "कैप्चर करें", s1d: "फोन को दवा लेबल की ओर करें। टेक्स्ट स्पष्ट होना चाहिए।", s2: "AI विश्लेषण", s2d: "AI दवा की पहचान करता है और जानकारी निकालता है।", s3: "परिणाम देखें", s3d: "दवा की विस्तृत जानकारी प्राप्त करें।", tip: "सुझाव", tipText: "बेहतर परिणामों के लिए अच्छी रोशनी का उपयोग करें।", features: "मुख्य विशेषताएं", f1: "तुरंत पहचान", f1d: "AI सेकंडों में पहचानता है", f2: "बहु-भाषा", f2d: "5 भाषाओं में परिणाम", f3: "ऑफलाइन इतिहास", f3d: "कभी भी एक्सेस करें", f4: "गोपनीयता पहले", f4d: "डेटा आपके डिवाइस पर", safety: "सुरक्षा जानकारी", safetyText: "MedScan AI आपको दवाओं को समझने में मदद करता है। यह पेशेवर चिकित्सा सलाह का विकल्प नहीं है।", faq: "सामान्य प्रश्न", q1: "क्या मेरा डेटा सुरक्षित है?", a1: "हां, डेटा केवल आपके डिवाइस पर संग्रहीत है।", q2: "स्कैन कितना सटीक है?", a2: "उच्च सटीकता, लेकिन फार्मासिस्ट से पुष्टि करें।", q3: "क्या कोई भी दवा स्कैन कर सकता हूं?", a3: "पढ़ने योग्य लेबल वाली अधिकांश दवाएं।" },
+    privacy: { title: "गोपनीयता", subtitle: "आपकी गोपनीयता महत्वपूर्ण है", t1: "प्रोसेसिंग", d1: "छवियां रीयल-टाइम में प्रोसेस", t2: "लोकल स्टोरेज", d2: "इतिहास केवल आपके डिवाइस पर", t3: "कैमरा", d3: "केवल स्कैनिंग के लिए", t4: "कोई ट्रैकिंग नहीं", d4: "व्यक्तिगत जानकारी नहीं लेते" },
+    errors: { notMedicine: "यह दवा नहीं लगती", scanFailed: "स्कैन विफल", networkError: "नेटवर्क त्रुटि", generic: "कुछ गलत हुआ" }
   },
   ta: {
     nav: { home: "முகப்பு", history: "வரலாறு", guide: "வழிகாட்டி", settings: "அமைப்புகள்" },
-    home: { greeting: "வரவேற்கிறோம்", title: "MedScan AI", subtitle: "அடுத்த தலைமுறை மருந்து நுண்ணறிவு", scan: "மருந்து ஸ்கேன்", scanDesc: "பகுப்பாய்வு செய்ய தட்டவும்", analyzing: "பகுப்பாய்வு செய்கிறது", recent: "சமீபத்திய", empty: "ஸ்கேன்கள் இல்லை", emptyDesc: "மருந்தை ஸ்கேன் செய்யுங்கள்", disclaimer: "⚠️ கல்விக்கு மட்டுமே. மருத்துவரை அணுகவும்.", scanCount: "மருந்துகள்", camera: "புகைப்படம் எடு", gallery: "கேலரியிலிருந்து தேர்வு", cancel: "ரத்து" },
-    result: { back: "திரும்பு", purpose: "நோக்கம்", howTo: "அளவு", effects: "பக்க விளைவுகள்", warnings: "எச்சரிக்கைகள்", storage: "சேமிப்பு", interactions: "தொடர்புகள்", disclaimer: "மருத்துவரை அணுகவும்.", translating: "மொழிபெயர்க்கிறது...", share: "பகிர்" },
-    history: { title: "மருந்து நூலகம்", subtitle: "ஸ்கேன் வரலாறு", noHistory: "ஸ்கேன் இல்லை", noHistoryDesc: "மருந்துகள் இங்கே தோன்றும்", export: "ஏற்றுமதி", deleteAll: "அழி", newest: "புதியது", oldest: "பழையது", alphabetical: "A-Z", confirmDelete: "நீக்கவா?", confirmDeleteAll: "அனைத்தும் அழிக்கவா?" },
-    settings: { title: "அமைப்புகள்", subtitle: "விருப்பங்கள்", language: "மொழி", languageDesc: "தேர்வு", clear: "தரவு அழி", clearDesc: "ஸ்கேன் நீக்கு", privacy: "தனியுரிமை", privacyDesc: "தரவு", about: "பற்றி", version: "பதிப்பு 4.0", madeWith: "♥ உடன்" },
-    guide: { title: "எப்படி வேலை செய்கிறது", subtitle: "எளிய படிகள்", s1: "பிடிப்பு", s1d: "மருந்தை நோக்கு", s2: "பகுப்பாய்வு", s2d: "AI தகவல் பிரித்தெடுக்கிறது", s3: "கற்றுக்கொள்", s3d: "விவரங்கள் பெறு", tip: "குறிப்பு", tipText: "நல்ல வெளிச்சம் துல்லியத்தை மேம்படுத்துகிறது" },
-    privacy: { title: "தனியுரிமை", subtitle: "உங்கள் தரவு முக்கியம்", t1: "செயலாக்கம்", d1: "நிகழ்நேர பகுப்பாய்வு", t2: "சேமிப்பு", d2: "தரவு உங்கள் சாதனத்தில்", t3: "கேமரா", d3: "ஸ்கேனிங்கிற்கு மட்டும்", t4: "மறுப்பு", d4: "கல்வி கருவி" },
-    errors: { notMedicine: "மருந்து இல்லை", scanFailed: "ஸ்கேன் தோல்வி", networkError: "நெட்வொர்க் பிழை", generic: "பிழை நிகழ்ந்தது" }
+    home: { greeting: "வரவேற்கிறோம்", title: "MedScan AI", subtitle: "ஸ்மார்ட் மருந்து ஸ்கேனர்", scan: "மருந்து ஸ்கேன்", scanDesc: "கேமராவை மருந்தை நோக்கி வைக்கவும்", analyzing: "பகுப்பாய்வு", recent: "சமீபத்திய", empty: "ஸ்கேன்கள் இல்லை", emptyDesc: "முதல் மருந்தை ஸ்கேன் செய்யுங்கள்", disclaimer: "⚠️ கல்வி நோக்கங்களுக்கு மட்டுமே. மருந்து எடுப்பதற்கு முன் மருத்துவரை அணுகவும்.", scanCount: "மருந்துகள்", camera: "புகைப்படம் எடு", gallery: "கேலரியிலிருந்து தேர்வு", cancel: "ரத்து" },
+    result: { back: "திரும்பு", purpose: "நோக்கம் & பயன்பாடுகள்", howTo: "அளவு வழிமுறைகள்", effects: "பக்க விளைவுகள்", warnings: "எச்சரிக்கைகள்", storage: "சேமிப்பு", interactions: "மருந்து தொடர்புகள்", disclaimer: "மருத்துவரை அணுகவும்.", translating: "மொழிபெயர்க்கிறது...", share: "பகிர்", contraindications: "யார் எடுக்கக்கூடாது", activeIngredients: "செயலில் உள்ள பொருட்கள்", pregnancy: "கர்ப்பம்", food: "உணவு தொடர்புகள்", onset: "விளைவு தொடக்கம்", duration: "கால அளவு" },
+    history: { title: "மருந்து நூலகம்", subtitle: "ஸ்கேன் செய்த மருந்துகள்", noHistory: "வரலாறு இல்லை", noHistoryDesc: "ஸ்கேன் செய்த மருந்துகள் இங்கே தோன்றும்", export: "ஏற்றுமதி", deleteAll: "அழி", newest: "புதியது", oldest: "பழையது", alphabetical: "A-Z", confirmDelete: "நீக்கவா?", confirmDeleteAll: "அனைத்தும் அழிக்கவா?" },
+    settings: { title: "அமைப்புகள்", subtitle: "ஆப் விருப்பங்கள்", language: "மொழி", languageDesc: "மொழி தேர்வு", clear: "தரவு அழி", clearDesc: "அனைத்து ஸ்கேன்களை நீக்கு", privacy: "தனியுரிமை", privacyDesc: "தரவு கையாளுதல்", about: "பற்றி", version: "பதிப்பு 4.0", madeWith: "♥ உடன் உருவாக்கப்பட்டது" },
+    guide: { title: "பயனர் வழிகாட்டி", subtitle: "பயன்படுத்த கற்றுக்கொள்ளுங்கள்", s1: "பிடிப்பு", s1d: "தொலைபேசியை மருந்து லேபிளை நோக்கி வைக்கவும்.", s2: "AI பகுப்பாய்வு", s2d: "AI மருந்தை அடையாளம் கண்டு தகவல்களை பிரித்தெடுக்கிறது.", s3: "முடிவுகளைப் பார்க்க", s3d: "மருந்தின் விரிவான தகவல்களைப் பெறுங்கள்.", tip: "குறிப்புகள்", tipText: "சிறந்த முடிவுகளுக்கு நல்ல வெளிச்சத்தைப் பயன்படுத்தவும்.", features: "முக்கிய அம்சங்கள்", f1: "உடனடி அடையாளம்", f1d: "AI நொடிகளில் அடையாளம் காணும்", f2: "பல மொழி", f2d: "5 மொழிகளில் முடிவுகள்", f3: "ஆஃப்லைன் வரலாறு", f3d: "எப்போதும் அணுகலாம்", f4: "தனியுரிமை முதல்", f4d: "தரவு உங்கள் சாதனத்தில்", safety: "பாதுகாப்பு தகவல்", safetyText: "MedScan AI மருந்துகளைப் புரிந்துகொள்ள உதவுகிறது. இது தொழில்முறை மருத்துவ ஆலோசனையை மாற்றாது.", faq: "பொதுவான கேள்விகள்", q1: "என் தரவு பாதுகாப்பானதா?", a1: "ஆம், தரவு உங்கள் சாதனத்தில் மட்டுமே சேமிக்கப்படும்.", q2: "ஸ்கேன் எவ்வளவு துல்லியமானது?", a2: "உயர் துல்லியம், ஆனால் மருந்தாளரிடம் உறுதிப்படுத்தவும்.", q3: "எந்த மருந்தையும் ஸ்கேன் செய்யலாமா?", a3: "படிக்கக்கூடிய லேபிள்கள் கொண்ட பெரும்பாலான மருந்துகள்." },
+    privacy: { title: "தனியுரிமை", subtitle: "உங்கள் தனியுரிமை முக்கியம்", t1: "செயலாக்கம்", d1: "படங்கள் நிகழ்நேரத்தில் செயலாக்கப்படும்", t2: "உள்ளூர் சேமிப்பு", d2: "வரலாறு உங்கள் சாதனத்தில் மட்டுமே", t3: "கேமரா", d3: "ஸ்கேனிங்கிற்கு மட்டுமே", t4: "கண்காணிப்பு இல்லை", d4: "தனிப்பட்ட தகவல்களை சேகரிக்கவில்லை" },
+    errors: { notMedicine: "இது மருந்து போல் தெரியவில்லை", scanFailed: "ஸ்கேன் தோல்வி", networkError: "நெட்வொர்க் பிழை", generic: "ஏதோ தவறு நடந்தது" }
   }
 };
 
@@ -339,18 +267,17 @@ const t = (lang, key) => {
 };
 
 // ============================================================================
-// GLASS CARD
+// CARD COMPONENT
 // ============================================================================
-const GlassCard = ({ children, className = "", onClick, variant = "default", glow = false }) => {
+const Card = ({ children, className = "", onClick, variant = "default" }) => {
   const variants = {
-    default: "bg-white/90 border-slate-200/60",
-    elevated: "bg-white border-slate-200 shadow-xl",
-    warning: "bg-amber-50/90 border-amber-200/60",
-    danger: "bg-red-50/90 border-red-200/60",
-    success: "bg-emerald-50/90 border-emerald-200/60"
+    default: "bg-white border-slate-200",
+    warning: "bg-amber-50 border-amber-200",
+    danger: "bg-red-50 border-red-200",
+    success: "bg-emerald-50 border-emerald-200"
   };
   return (
-    <div onClick={onClick} className={`relative backdrop-blur-xl border rounded-2xl transition-all duration-300 ${variants[variant]} ${onClick ? 'cursor-pointer hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]' : ''} ${glow ? 'shadow-lg shadow-emerald-500/10' : 'shadow-sm'} ${className}`}>
+    <div onClick={onClick} className={`border rounded-2xl shadow-sm transition-all ${variants[variant]} ${onClick ? 'cursor-pointer hover:shadow-md active:scale-[0.99]' : ''} ${className}`}>
       {children}
     </div>
   );
@@ -411,10 +338,31 @@ export default function MedScanApp() {
     return response.json();
   };
 
-  const createPrompt = (targetLang) => `You are a pharmacist assistant. Analyze this medication image.
-STEP 1: If NOT a medication, respond: {"error": "NOT_MEDICINE"}
-STEP 2: If it IS medication, extract information in ${LANGUAGE_NAMES[targetLang]}.
-Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": "...", "dosageForm": "...", "strength": "...", "purpose": "...", "howToTake": "...", "sideEffects": [], "warnings": [], "storage": "...", "interactions": [] }`;
+  // Enhanced prompt for more comprehensive data
+  const createPrompt = (targetLang) => `You are a pharmaceutical expert. Analyze this medication image thoroughly.
+If NOT a medication, respond: {"error": "NOT_MEDICINE"}
+If it IS medication, extract ALL available information in ${LANGUAGE_NAMES[targetLang]}.
+Return JSON with these fields:
+{
+  "brandName": "Brand/trade name",
+  "genericName": "Generic/chemical name",
+  "manufacturer": "Manufacturing company",
+  "dosageForm": "tablet/capsule/liquid/etc",
+  "strength": "Dosage strength",
+  "purpose": "What this medicine treats - be detailed",
+  "howToTake": "Complete dosage instructions including frequency, timing, with/without food",
+  "sideEffects": ["List common side effects"],
+  "warnings": ["Important safety warnings"],
+  "storage": "Storage requirements",
+  "interactions": ["Known drug interactions"],
+  "contraindications": ["Who should NOT take this medicine"],
+  "activeIngredients": ["List active ingredients"],
+  "pregnancyWarning": "Safety during pregnancy/breastfeeding",
+  "foodInteractions": "Foods to avoid or take with",
+  "onsetTime": "How long until it takes effect",
+  "duration": "How long effects last"
+}
+Be comprehensive and patient-friendly. Include all information visible on the packaging.`;
 
   const handleScan = async (file) => {
     if (!file || loading) return;
@@ -483,24 +431,24 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
 
   if (showSplash) return <SplashScreen onComplete={() => setShowSplash(false)} />;
 
-  // Simplified Scan Options Modal - Clean color palette
+  // Scan Modal
   const ScanOptionsModal = () => (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowScanOptions(false)}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setShowScanOptions(false)}>
       <div className="w-full max-w-lg bg-white rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-6" />
         <h3 className="text-xl font-bold text-slate-800 text-center mb-6">{t(lang, 'home.scan')}</h3>
         <div className="space-y-3">
-          <button onClick={() => cameraRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-900 text-white font-semibold shadow-lg hover:bg-slate-800 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center"><Camera size={24} /></div>
+          <button onClick={() => cameraRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors">
+            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center"><Camera size={24} /></div>
             <span className="text-lg">{t(lang, 'home.camera')}</span>
-            <ChevronRight className="ml-auto opacity-50" size={20} />
+            <ChevronRight className="ml-auto opacity-60" size={20} />
           </button>
-          <button onClick={() => fileRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition-all">
+          <button onClick={() => fileRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-100 text-slate-800 font-semibold hover:bg-slate-200 transition-colors">
             <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center"><Image size={24} /></div>
             <span className="text-lg">{t(lang, 'home.gallery')}</span>
             <ChevronRight className="ml-auto opacity-30" size={20} />
           </button>
-          <button onClick={() => setShowScanOptions(false)} className="w-full p-4 rounded-2xl text-slate-500 font-medium mt-2 hover:bg-slate-50 transition-all">{t(lang, 'home.cancel')}</button>
+          <button onClick={() => setShowScanOptions(false)} className="w-full p-4 text-slate-500 font-medium">{t(lang, 'home.cancel')}</button>
         </div>
       </div>
     </div>
@@ -511,11 +459,11 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <p className="text-emerald-600 text-sm font-semibold">{t(lang, 'home.greeting')}</p>
-          <h1 className="text-3xl md:text-5xl font-black text-slate-800">{t(lang, 'home.title')}</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-800">{t(lang, 'home.title')}</h1>
           <p className="text-slate-500 mt-1">{t(lang, 'home.subtitle')}</p>
           {history.length > 0 && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
               <span className="text-emerald-700 font-bold">{history.length}</span>
               <span className="text-emerald-600 text-sm">{t(lang, 'home.scanCount')}</span>
             </div>
@@ -524,46 +472,39 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5">
-            <GlassCard onClick={() => !loading && setShowScanOptions(true)} className={`p-6 min-h-[340px] flex flex-col items-center justify-center ${loading ? 'bg-slate-50' : ''}`} glow={!loading}>
+            <Card onClick={() => !loading && setShowScanOptions(true)} className="p-6 min-h-[320px] flex flex-col items-center justify-center">
               <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraRef} onChange={(e) => { if (e.target.files?.[0]) handleScan(e.target.files[0]); e.target.value = ''; }} />
               <input type="file" accept="image/*" className="hidden" ref={fileRef} onChange={(e) => { if (e.target.files?.[0]) handleScan(e.target.files[0]); e.target.value = ''; }} />
               
-              {loading ? <ScanningAnimation lang={lang} t={t} /> : (
+              {loading ? <ScanningAnimation text={t(lang, 'home.analyzing')} /> : (
                 <>
-                  <div className="relative mb-6">
-                    <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
-                    <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl shadow-emerald-500/30">
-                      <Scan size={44} className="text-white" />
-                    </div>
+                  <div className="mb-6">
+                    <RotatingGlobe size={120} />
                   </div>
                   <h3 className="text-xl font-bold text-slate-800">{t(lang, 'home.scan')}</h3>
                   <p className="text-slate-500 mt-1 text-center">{t(lang, 'home.scanDesc')}</p>
-                  <div className="flex gap-2 mt-5">
-                    <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">AI Powered</span>
-                    <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">Instant</span>
-                  </div>
                 </>
               )}
-            </GlassCard>
+            </Card>
 
             {error && (
-              <GlassCard className="p-4 mt-4" variant="danger">
+              <Card className="p-4 mt-4" variant="danger">
                 <div className="flex items-center gap-3">
                   <XCircle className="text-red-500 shrink-0" size={20} />
                   <p className="text-red-700 flex-1 text-sm">{error}</p>
                   <button onClick={() => setError(null)} className="text-red-400"><X size={18} /></button>
                 </div>
-              </GlassCard>
+              </Card>
             )}
           </div>
 
           <div className="lg:col-span-7 space-y-5">
-            <GlassCard className="p-4" variant="warning">
+            <Card className="p-4" variant="warning">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><Shield className="text-amber-600" size={20} /></div>
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><AlertTriangle className="text-amber-600" size={20} /></div>
                 <p className="text-amber-800 text-sm leading-relaxed">{t(lang, 'home.disclaimer')}</p>
               </div>
-            </GlassCard>
+            </Card>
 
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -575,15 +516,15 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
               </div>
               
               {history.length === 0 ? (
-                <GlassCard className="p-10 text-center">
+                <Card className="p-10 text-center">
                   <Sparkles className="mx-auto mb-4 text-slate-300" size={32} />
                   <h4 className="text-slate-700 font-semibold">{t(lang, 'home.empty')}</h4>
                   <p className="text-slate-500 text-sm mt-1">{t(lang, 'home.emptyDesc')}</p>
-                </GlassCard>
+                </Card>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {history.slice(0, 4).map((item) => (
-                    <GlassCard key={item.id} className="p-3" variant="elevated" onClick={() => { setScanResult(item); navigateTo('result', 'home'); }}>
+                    <Card key={item.id} className="p-3" onClick={() => { setScanResult(item); navigateTo('result', 'home'); }}>
                       <div className="flex items-center gap-3">
                         <img src={item.img} className="w-14 h-14 rounded-xl object-cover bg-slate-100" alt="" />
                         <div className="min-w-0 flex-1">
@@ -593,7 +534,7 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
                         </div>
                         <ChevronRight className="text-slate-300" size={18} />
                       </div>
-                    </GlassCard>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -606,37 +547,56 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
 
   const ResultScreen = () => {
     if (!scanResult) return null;
+    const r = scanResult;
     return (
       <div className="px-5 pt-14 pb-8 md:px-10 md:pt-8">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <button onClick={goBack} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold shadow-sm"><ArrowLeft size={18} /> {t(lang, 'result.back')}</button>
-            <button onClick={() => navigator.share?.({ title: scanResult.brandName, text: scanResult.purpose })} className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><Share2 size={18} className="text-slate-600" /></button>
+            <button onClick={() => navigator.share?.({ title: r.brandName, text: r.purpose })} className="w-11 h-11 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><Share2 size={18} className="text-slate-600" /></button>
           </div>
 
-          <GlassCard className="p-5 mb-5" variant="elevated" glow>
+          <Card className="p-5 mb-5">
             <div className="flex gap-4">
-              <img src={scanResult.img} className="w-24 h-24 rounded-2xl object-cover bg-slate-100 border border-slate-200" alt="" />
+              <img src={r.img} className="w-24 h-24 rounded-2xl object-cover bg-slate-100 border border-slate-200" alt="" />
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold">{scanResult.dosageForm}</span>
-                  {scanResult.strength !== 'N/A' && <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">{scanResult.strength}</span>}
+                  <span className="px-3 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold">{r.dosageForm}</span>
+                  {r.strength !== 'N/A' && <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">{r.strength}</span>}
                 </div>
-                <h1 className="text-2xl font-black text-slate-800 truncate">{scanResult.brandName}</h1>
-                <p className="text-slate-500 truncate">{scanResult.genericName}</p>
-                {scanResult.manufacturer !== 'N/A' && <p className="text-slate-400 text-xs mt-1 flex items-center gap-1"><MapPin size={12} /> {scanResult.manufacturer}</p>}
+                <h1 className="text-2xl font-bold text-slate-800 truncate">{r.brandName}</h1>
+                <p className="text-slate-500 truncate">{r.genericName}</p>
+                {r.manufacturer !== 'N/A' && <p className="text-slate-400 text-xs mt-1 flex items-center gap-1"><MapPin size={12} /> {r.manufacturer}</p>}
               </div>
             </div>
             {isTranslating && <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-700"><RefreshCw size={16} className="animate-spin" /><span className="text-sm font-medium">{t(lang, 'result.translating')}</span></div>}
-          </GlassCard>
+          </Card>
 
           <div className="space-y-3">
-            {scanResult.purpose !== 'N/A' && <GlassCard className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0"><Heart className="text-emerald-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.purpose')}</h4><p className="text-slate-700 text-sm">{scanResult.purpose}</p></div></div></GlassCard>}
-            {scanResult.howToTake !== 'N/A' && <GlassCard className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Clock className="text-blue-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.howTo')}</h4><p className="text-slate-700 text-sm">{scanResult.howToTake}</p></div></div></GlassCard>}
-            {scanResult.storage !== 'N/A' && <GlassCard className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0"><Layers className="text-violet-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.storage')}</h4><p className="text-slate-700 text-sm">{scanResult.storage}</p></div></div></GlassCard>}
-            {scanResult.sideEffects?.length > 0 && <GlassCard className="p-4" variant="warning"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-amber-200 flex items-center justify-center shrink-0"><AlertTriangle className="text-amber-700" size={18} /></div><div className="flex-1"><h4 className="text-amber-700 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.effects')}</h4><ul className="space-y-1">{scanResult.sideEffects.map((e, i) => <li key={i} className="text-amber-900 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />{e}</li>)}</ul></div></div></GlassCard>}
-            {scanResult.warnings?.length > 0 && <GlassCard className="p-4" variant="danger"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-red-200 flex items-center justify-center shrink-0"><ShieldCheck className="text-red-700" size={18} /></div><div className="flex-1"><h4 className="text-red-700 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.warnings')}</h4><ul className="space-y-1">{scanResult.warnings.map((w, i) => <li key={i} className="text-red-900 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />{w}</li>)}</ul></div></div></GlassCard>}
-            {scanResult.interactions?.length > 0 && <GlassCard className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center shrink-0"><Zap className="text-pink-600" size={18} /></div><div className="flex-1"><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.interactions')}</h4><ul className="space-y-1">{scanResult.interactions.map((int, idx) => <li key={idx} className="text-slate-700 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-pink-400 mt-1.5 shrink-0" />{int}</li>)}</ul></div></div></GlassCard>}
+            {r.purpose !== 'N/A' && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0"><Heart className="text-emerald-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.purpose')}</h4><p className="text-slate-700 text-sm">{r.purpose}</p></div></div></Card>}
+            
+            {r.activeIngredients?.length > 0 && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center shrink-0"><Activity className="text-cyan-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.activeIngredients')}</h4><div className="flex flex-wrap gap-1">{r.activeIngredients.map((ing, i) => <span key={i} className="px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-xs">{ing}</span>)}</div></div></div></Card>}
+            
+            {r.howToTake !== 'N/A' && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0"><Clock className="text-blue-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.howTo')}</h4><p className="text-slate-700 text-sm">{r.howToTake}</p></div></div></Card>}
+            
+            {(r.onsetTime || r.duration) && <div className="grid grid-cols-2 gap-3">
+              {r.onsetTime && <Card className="p-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0"><Zap className="text-indigo-600" size={16} /></div><div><h4 className="text-slate-400 text-[9px] font-bold uppercase">{t(lang, 'result.onset')}</h4><p className="text-slate-700 text-sm font-medium">{r.onsetTime}</p></div></div></Card>}
+              {r.duration && <Card className="p-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0"><Clock className="text-purple-600" size={16} /></div><div><h4 className="text-slate-400 text-[9px] font-bold uppercase">{t(lang, 'result.duration')}</h4><p className="text-slate-700 text-sm font-medium">{r.duration}</p></div></div></Card>}
+            </div>}
+            
+            {r.storage !== 'N/A' && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0"><ThermometerSun className="text-violet-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.storage')}</h4><p className="text-slate-700 text-sm">{r.storage}</p></div></div></Card>}
+            
+            {r.foodInteractions && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0"><Coffee className="text-orange-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.food')}</h4><p className="text-slate-700 text-sm">{r.foodInteractions}</p></div></div></Card>}
+            
+            {r.pregnancyWarning && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-pink-100 flex items-center justify-center shrink-0"><Baby className="text-pink-600" size={18} /></div><div><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-0.5">{t(lang, 'result.pregnancy')}</h4><p className="text-slate-700 text-sm">{r.pregnancyWarning}</p></div></div></Card>}
+            
+            {r.sideEffects?.length > 0 && <Card className="p-4" variant="warning"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-amber-200 flex items-center justify-center shrink-0"><AlertTriangle className="text-amber-700" size={18} /></div><div className="flex-1"><h4 className="text-amber-700 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.effects')}</h4><ul className="space-y-1">{r.sideEffects.map((e, i) => <li key={i} className="text-amber-900 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />{e}</li>)}</ul></div></div></Card>}
+            
+            {r.contraindications?.length > 0 && <Card className="p-4" variant="danger"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-red-200 flex items-center justify-center shrink-0"><Users className="text-red-700" size={18} /></div><div className="flex-1"><h4 className="text-red-700 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.contraindications')}</h4><ul className="space-y-1">{r.contraindications.map((c, i) => <li key={i} className="text-red-900 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />{c}</li>)}</ul></div></div></Card>}
+            
+            {r.warnings?.length > 0 && <Card className="p-4" variant="danger"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-red-200 flex items-center justify-center shrink-0"><ShieldCheck className="text-red-700" size={18} /></div><div className="flex-1"><h4 className="text-red-700 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.warnings')}</h4><ul className="space-y-1">{r.warnings.map((w, i) => <li key={i} className="text-red-900 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />{w}</li>)}</ul></div></div></Card>}
+            
+            {r.interactions?.length > 0 && <Card className="p-4"><div className="flex items-start gap-3"><div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0"><Zap className="text-rose-600" size={18} /></div><div className="flex-1"><h4 className="text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">{t(lang, 'result.interactions')}</h4><ul className="space-y-1">{r.interactions.map((int, idx) => <li key={idx} className="text-slate-700 text-sm flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />{int}</li>)}</ul></div></div></Card>}
           </div>
           <div className="mt-5 p-4 rounded-xl bg-slate-100 text-center"><p className="text-slate-500 text-sm">{t(lang, 'result.disclaimer')}</p></div>
         </div>
@@ -649,7 +609,7 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-black text-slate-800">{t(lang, 'history.title')}</h1>
+            <h1 className="text-2xl font-bold text-slate-800">{t(lang, 'history.title')}</h1>
             <p className="text-slate-500 text-sm">{t(lang, 'history.subtitle')}</p>
           </div>
           {history.length > 0 && (
@@ -661,38 +621,34 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
         </div>
 
         {history.length === 0 ? (
-          <GlassCard className="p-14 text-center">
+          <Card className="p-14 text-center">
             <History className="mx-auto mb-4 text-slate-300" size={44} />
             <h3 className="text-slate-700 font-bold text-xl mb-1">{t(lang, 'history.noHistory')}</h3>
             <p className="text-slate-500 mb-6">{t(lang, 'history.noHistoryDesc')}</p>
-            <button onClick={() => navigateTo('home')} className="px-6 py-3 rounded-xl bg-slate-900 text-white font-bold">Scan Medicine</button>
-          </GlassCard>
+            <button onClick={() => navigateTo('home')} className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold">Scan Medicine</button>
+          </Card>
         ) : (
           <>
             <div className="mb-5">
-              <div className="relative inline-block">
-                <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="appearance-none px-5 py-2.5 pr-10 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm shadow-sm cursor-pointer">
-                  <option value="newest">{t(lang, 'history.newest')}</option>
-                  <option value="oldest">{t(lang, 'history.oldest')}</option>
-                  <option value="alphabetical">{t(lang, 'history.alphabetical')}</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-              </div>
+              <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm shadow-sm">
+                <option value="newest">{t(lang, 'history.newest')}</option>
+                <option value="oldest">{t(lang, 'history.oldest')}</option>
+                <option value="alphabetical">{t(lang, 'history.alphabetical')}</option>
+              </select>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {sortedHistory.map((item) => (
-                <GlassCard key={item.id} className="p-3 group" variant="elevated" onClick={() => { setScanResult(item); navigateTo('result', 'history'); }}>
+                <Card key={item.id} className="p-3 group" onClick={() => { setScanResult(item); navigateTo('result', 'history'); }}>
                   <div className="flex items-center gap-3">
                     <img src={item.img} className="w-14 h-14 rounded-xl object-cover bg-slate-100" alt="" />
                     <div className="min-w-0 flex-1">
                       <h4 className="text-slate-800 font-bold text-sm truncate">{item.brandName}</h4>
                       <p className="text-slate-500 text-xs truncate">{item.genericName}</p>
-                      <p className="text-slate-400 text-[10px] mt-0.5 flex items-center gap-1"><Calendar size={10} /> {new Date(item.date).toLocaleDateString()}</p>
+                      <p className="text-slate-400 text-[10px] mt-0.5">{new Date(item.date).toLocaleDateString()}</p>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); deleteScan(item.id); }} className="w-9 h-9 rounded-lg opacity-0 group-hover:opacity-100 bg-red-50 flex items-center justify-center text-red-500 transition-all"><Trash2 size={16} /></button>
                   </div>
-                </GlassCard>
+                </Card>
               ))}
             </div>
           </>
@@ -701,27 +657,93 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
     </div>
   );
 
+  // Enhanced Guide Screen
   const GuideScreen = () => (
     <div className="px-5 pt-14 pb-8 md:px-10 md:pt-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-black text-slate-800 mb-1">{t(lang, 'guide.title')}</h1>
-        <p className="text-slate-500 text-sm mb-6">{t(lang, 'guide.subtitle')}</p>
-        <div className="space-y-3">
-          {[{ icon: Scan, bg: 'bg-emerald-100', color: 'text-emerald-600', num: '01', title: t(lang, 'guide.s1'), desc: t(lang, 'guide.s1d') }, { icon: Eye, bg: 'bg-violet-100', color: 'text-violet-600', num: '02', title: t(lang, 'guide.s2'), desc: t(lang, 'guide.s2d') }, { icon: BookOpen, bg: 'bg-amber-100', color: 'text-amber-600', num: '03', title: t(lang, 'guide.s3'), desc: t(lang, 'guide.s3d') }].map((step, i) => (
-            <GlassCard key={i} className="p-4">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-2xl font-bold text-slate-800 mb-1">{t(lang, 'guide.title')}</h1>
+        <p className="text-slate-500 text-sm mb-8">{t(lang, 'guide.subtitle')}</p>
+        
+        {/* How to Use Steps */}
+        <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-emerald-500" /> How to Scan</h2>
+        <div className="space-y-3 mb-8">
+          {[
+            { icon: Camera, color: 'emerald', num: '1', title: t(lang, 'guide.s1'), desc: t(lang, 'guide.s1d') },
+            { icon: Globe, color: 'blue', num: '2', title: t(lang, 'guide.s2'), desc: t(lang, 'guide.s2d') },
+            { icon: FileText, color: 'violet', num: '3', title: t(lang, 'guide.s3'), desc: t(lang, 'guide.s3d') }
+          ].map((step, i) => (
+            <Card key={i} className="p-4">
               <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-xl ${step.bg} flex items-center justify-center shrink-0`}><step.icon className={step.color} size={22} /></div>
-                <div><span className="text-slate-300 text-xs font-mono font-bold">{step.num}</span><h3 className="text-slate-800 font-bold">{step.title}</h3><p className="text-slate-500 text-sm mt-0.5">{step.desc}</p></div>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${step.color === 'emerald' ? 'bg-emerald-100' : step.color === 'blue' ? 'bg-blue-100' : 'bg-violet-100'}`}>
+                  <step.icon className={step.color === 'emerald' ? 'text-emerald-600' : step.color === 'blue' ? 'text-blue-600' : 'text-violet-600'} size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center">{step.num}</span>
+                    <h3 className="text-slate-800 font-bold">{step.title}</h3>
+                  </div>
+                  <p className="text-slate-500 text-sm">{step.desc}</p>
+                </div>
               </div>
-            </GlassCard>
+            </Card>
           ))}
         </div>
-        <GlassCard className="mt-5 p-4" variant="success" glow>
+
+        {/* Pro Tips */}
+        <Card className="p-4 mb-8" variant="success">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-200 flex items-center justify-center shrink-0"><Star className="text-emerald-700" size={18} /></div>
-            <div><h4 className="text-emerald-800 font-bold">{t(lang, 'guide.tip')}</h4><p className="text-emerald-700 text-sm mt-0.5">{t(lang, 'guide.tipText')}</p></div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-200 flex items-center justify-center shrink-0"><Lightbulb className="text-emerald-700" size={20} /></div>
+            <div>
+              <h4 className="text-emerald-800 font-bold">{t(lang, 'guide.tip')}</h4>
+              <p className="text-emerald-700 text-sm mt-1">{t(lang, 'guide.tipText')}</p>
+            </div>
           </div>
-        </GlassCard>
+        </Card>
+
+        {/* Features Grid */}
+        <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><Star size={20} className="text-amber-500" /> {t(lang, 'guide.features')}</h2>
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {[
+            { icon: Zap, title: t(lang, 'guide.f1'), desc: t(lang, 'guide.f1d'), color: 'amber' },
+            { icon: Globe, title: t(lang, 'guide.f2'), desc: t(lang, 'guide.f2d'), color: 'blue' },
+            { icon: History, title: t(lang, 'guide.f3'), desc: t(lang, 'guide.f3d'), color: 'violet' },
+            { icon: Shield, title: t(lang, 'guide.f4'), desc: t(lang, 'guide.f4d'), color: 'emerald' }
+          ].map((f, i) => (
+            <Card key={i} className="p-4">
+              <div className={`w-10 h-10 rounded-xl mb-3 flex items-center justify-center ${f.color === 'amber' ? 'bg-amber-100' : f.color === 'blue' ? 'bg-blue-100' : f.color === 'violet' ? 'bg-violet-100' : 'bg-emerald-100'}`}>
+                <f.icon className={f.color === 'amber' ? 'text-amber-600' : f.color === 'blue' ? 'text-blue-600' : f.color === 'violet' ? 'text-violet-600' : 'text-emerald-600'} size={20} />
+              </div>
+              <h4 className="text-slate-800 font-bold text-sm">{f.title}</h4>
+              <p className="text-slate-500 text-xs mt-0.5">{f.desc}</p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Safety Info */}
+        <Card className="p-4 mb-8" variant="warning">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-200 flex items-center justify-center shrink-0"><AlertTriangle className="text-amber-700" size={20} /></div>
+            <div>
+              <h4 className="text-amber-800 font-bold">{t(lang, 'guide.safety')}</h4>
+              <p className="text-amber-700 text-sm mt-1">{t(lang, 'guide.safetyText')}</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* FAQ */}
+        <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><Info size={20} className="text-blue-500" /> {t(lang, 'guide.faq')}</h2>
+        <div className="space-y-3">
+          {[
+            { q: t(lang, 'guide.q1'), a: t(lang, 'guide.a1') },
+            { q: t(lang, 'guide.q2'), a: t(lang, 'guide.a2') },
+            { q: t(lang, 'guide.q3'), a: t(lang, 'guide.a3') }
+          ].map((faq, i) => (
+            <Card key={i} className="p-4">
+              <h4 className="text-slate-800 font-semibold text-sm mb-1">{faq.q}</h4>
+              <p className="text-slate-500 text-sm">{faq.a}</p>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -729,10 +751,10 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
   const SettingsScreen = () => (
     <div className="px-5 pt-14 pb-8 md:px-10 md:pt-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-black text-slate-800 mb-1">{t(lang, 'settings.title')}</h1>
+        <h1 className="text-2xl font-bold text-slate-800 mb-1">{t(lang, 'settings.title')}</h1>
         <p className="text-slate-500 text-sm mb-6">{t(lang, 'settings.subtitle')}</p>
-        <GlassCard className="overflow-hidden mb-5">
-          <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50"><Globe className="text-emerald-500" size={20} /><div><span className="text-slate-800 font-bold text-sm">{t(lang, 'settings.language')}</span><p className="text-slate-500 text-xs">{t(lang, 'settings.languageDesc')}</p></div></div>
+        <Card className="overflow-hidden mb-5">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50"><Globe className="text-emerald-500" size={20} /><div><span className="text-slate-800 font-bold text-sm">{t(lang, 'settings.language')}</span><p className="text-slate-500 text-xs">{t(lang, 'settings.languageDesc')}</p></div></div>
           <div className="p-2">
             {LANGUAGES.map(l => (
               <button key={l.code} onClick={() => setLang(l.code)} className={`w-full p-3 rounded-xl flex items-center justify-between transition-all mb-1 ${lang === l.code ? 'bg-emerald-50 border border-emerald-200' : 'hover:bg-slate-50'}`}>
@@ -741,24 +763,24 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
               </button>
             ))}
           </div>
-        </GlassCard>
+        </Card>
         <div className="space-y-2">
-          <GlassCard className="p-4" onClick={() => navigateTo('privacy')}>
+          <Card className="p-4" onClick={() => navigateTo('privacy')}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><Lock className="text-slate-500" size={18} /></div>
               <div className="flex-1"><span className="text-slate-800 font-bold text-sm">{t(lang, 'settings.privacy')}</span><p className="text-slate-500 text-xs">{t(lang, 'settings.privacyDesc')}</p></div>
               <ChevronRight className="text-slate-300" size={18} />
             </div>
-          </GlassCard>
-          <GlassCard className="p-4" variant="danger" onClick={clearAllHistory}>
+          </Card>
+          <Card className="p-4" variant="danger" onClick={clearAllHistory}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><Trash2 className="text-red-500" size={18} /></div>
               <div className="flex-1"><span className="text-red-700 font-bold text-sm">{t(lang, 'settings.clear')}</span><p className="text-red-500 text-xs">{t(lang, 'settings.clearDesc')}</p></div>
             </div>
-          </GlassCard>
+          </Card>
         </div>
         <div className="mt-12 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-500/30"><Pill className="text-white" size={28} /></div>
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center mx-auto mb-4 shadow-lg"><Pill className="text-white" size={28} /></div>
           <h3 className="text-slate-800 font-bold">{t(lang, 'settings.about')}</h3>
           <p className="text-slate-500 text-sm">{t(lang, 'settings.version')}</p>
           <p className="text-slate-400 text-xs mt-2">{t(lang, 'settings.madeWith')}</p>
@@ -771,18 +793,20 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
     <div className="px-5 pt-14 pb-8 md:px-10 md:pt-8">
       <div className="max-w-2xl mx-auto">
         <button onClick={goBack} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm mb-6 shadow-sm"><ArrowLeft size={16} /> {t(lang, 'settings.title')}</button>
-        <h1 className="text-2xl font-black text-slate-800 mb-1">{t(lang, 'privacy.title')}</h1>
+        <h1 className="text-2xl font-bold text-slate-800 mb-1">{t(lang, 'privacy.title')}</h1>
         <p className="text-slate-500 text-sm mb-6">{t(lang, 'privacy.subtitle')}</p>
-        <GlassCard className="p-5">
+        <Card className="p-5">
           <div className="space-y-6">
-            {[{ icon: Eye, bg: 'bg-emerald-100', color: 'text-emerald-600' }, { icon: Fingerprint, bg: 'bg-violet-100', color: 'text-violet-600' }, { icon: Camera, bg: 'bg-blue-100', color: 'text-blue-600' }, { icon: Shield, bg: 'bg-amber-100', color: 'text-amber-600' }].map((item, i) => (
+            {[{ icon: Eye, color: 'emerald' }, { icon: Fingerprint, color: 'violet' }, { icon: Camera, color: 'blue' }, { icon: Shield, color: 'amber' }].map((item, i) => (
               <div key={i} className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}><item.icon className={item.color} size={18} /></div>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.color === 'emerald' ? 'bg-emerald-100' : item.color === 'violet' ? 'bg-violet-100' : item.color === 'blue' ? 'bg-blue-100' : 'bg-amber-100'}`}>
+                  <item.icon className={item.color === 'emerald' ? 'text-emerald-600' : item.color === 'violet' ? 'text-violet-600' : item.color === 'blue' ? 'text-blue-600' : 'text-amber-600'} size={18} />
+                </div>
                 <div><h3 className="text-slate-800 font-bold text-sm mb-0.5">{t(lang, `privacy.t${i + 1}`)}</h3><p className="text-slate-500 text-sm">{t(lang, `privacy.d${i + 1}`)}</p></div>
               </div>
             ))}
           </div>
-        </GlassCard>
+        </Card>
       </div>
     </div>
   );
@@ -790,8 +814,8 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
   const DesktopNav = () => (
     <div className="hidden lg:flex flex-col w-64 h-screen sticky top-0 p-5 bg-white border-r border-slate-200">
       <div className="flex items-center gap-3 mb-10">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20"><Pill className="text-white" size={24} /></div>
-        <div><h1 className="text-slate-800 font-black">MedScan AI</h1><p className="text-slate-400 text-[10px] font-medium">Next Generation</p></div>
+        <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg"><Pill className="text-white" size={24} /></div>
+        <div><h1 className="text-slate-800 font-bold">MedScan AI</h1><p className="text-slate-400 text-[10px]">Medicine Scanner</p></div>
       </div>
       <nav className="space-y-1 flex-1">
         {[{ id: 'home', icon: Home }, { id: 'history', icon: History }, { id: 'guide', icon: BookOpen }, { id: 'settings', icon: Settings }].map(item => {
@@ -804,12 +828,11 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
           );
         })}
       </nav>
-      <div className="pt-4 border-t border-slate-100 text-center"><p className="text-slate-400 text-[10px]">Educational Use Only</p></div>
     </div>
   );
 
   const MobileNav = () => (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-2 pb-7 bg-white/95 backdrop-blur-xl border-t border-slate-200">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-2 pb-7 bg-white border-t border-slate-200">
       <div className="flex justify-around max-w-md mx-auto">
         {[{ id: 'home', icon: Home }, { id: 'history', icon: History }, { id: 'guide', icon: BookOpen }, { id: 'settings', icon: Settings }].map(item => {
           const isActive = screen === item.id || (screen === 'result' && item.id === previousScreen) || (screen === 'privacy' && item.id === 'settings');
@@ -826,7 +849,7 @@ Return JSON only: { "brandName": "...", "genericName": "...", "manufacturer": ".
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+    <div className="min-h-screen bg-slate-50">
       <div className="flex">
         <DesktopNav />
         <main className="flex-1 min-h-screen pb-24 lg:pb-6">
