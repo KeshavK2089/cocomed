@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component {
               onClick={() => window.location.reload()} 
               className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-semibold transition-colors"
             >
-              Restart CocoMed
+              Restart MedicScanAI
             </button>
           </div>
         </div>
@@ -130,7 +130,7 @@ const UI_STRINGS = {
     nav: { home: "Home", history: "History", guide: "Guide", settings: "Settings" },
     home: { 
       greeting: "Welcome to", 
-      title: "CocoMed", 
+      title: "", 
       subtitle: "Your Personal Medicine Assistant",
       scan: "Tap to Scan", 
       scanDesc: "Use your camera to scan medicine",
@@ -182,7 +182,7 @@ const UI_STRINGS = {
       clearDesc: "Remove all scans and reset app",
       privacy: "Privacy Policy",
       privacyDesc: "How we handle your data",
-      about: "About CocoMed",
+      about: "About ",
       version: "Version 3.0",
       madeWith: "Made with ♥ for better health"
     },
@@ -208,7 +208,7 @@ const UI_STRINGS = {
       t3: "Camera Access", 
       d3: "Camera permissions are used exclusively for scanning medication. We never access your camera without your explicit action.",
       t4: "Medical Disclaimer", 
-      d4: "CocoMed is an educational tool designed to help you learn about medications. It is not intended to replace professional medical advice."
+      d4: " is an educational tool designed to help you learn about medications. It is not intended to replace professional medical advice."
     },
     errors: {
       notMedicine: "This doesn't appear to be a medication. Please scan a medicine label, package, or pill bottle.",
@@ -221,7 +221,7 @@ const UI_STRINGS = {
     nav: { home: "Inicio", history: "Historial", guide: "Guía", settings: "Ajustes" },
     home: { 
       greeting: "Bienvenido a", 
-      title: "CocoMed", 
+      title: "", 
       subtitle: "Tu Asistente de Medicamentos",
       scan: "Toca para Escanear", 
       scanDesc: "Usa tu cámara para escanear",
@@ -299,7 +299,7 @@ const UI_STRINGS = {
       t3: "Acceso a Cámara", 
       d3: "Solo usamos la cámara para escanear medicamentos.",
       t4: "Aviso Médico", 
-      d4: "CocoMed es una herramienta educativa, no sustituye el consejo médico."
+      d4: "MedicScanAI es una herramienta educativa, no sustituye el consejo médico."
     },
     errors: {
       notMedicine: "Esto no parece ser un medicamento.",
@@ -312,7 +312,7 @@ const UI_STRINGS = {
     nav: { home: "首页", history: "历史", guide: "指南", settings: "设置" },
     home: { 
       greeting: "欢迎使用", 
-      title: "CocoMed", 
+      title: "MedicScanAI", 
       subtitle: "您的个人药物助手",
       scan: "点击扫描", 
       scanDesc: "使用相机扫描药物",
@@ -390,7 +390,7 @@ const UI_STRINGS = {
       t3: "相机访问", 
       d3: "仅用于扫描药物。",
       t4: "医疗声明", 
-      d4: "CocoMed是教育工具，不能替代医疗建议。"
+      d4: "MedicScanAI是教育工具，不能替代医疗建议。"
     },
     errors: {
       notMedicine: "这似乎不是药物。",
@@ -403,7 +403,7 @@ const UI_STRINGS = {
     nav: { home: "होम", history: "इतिहास", guide: "गाइड", settings: "सेटिंग्स" },
     home: { 
       greeting: "स्वागत है", 
-      title: "CocoMed", 
+      title: "MedicScanAI", 
       subtitle: "आपका व्यक्तिगत दवा सहायक",
       scan: "स्कैन करने के लिए टैप करें", 
       scanDesc: "दवा स्कैन करने के लिए कैमरा उपयोग करें",
@@ -481,7 +481,7 @@ const UI_STRINGS = {
       t3: "कैमरा एक्सेस", 
       d3: "केवल दवा स्कैनिंग के लिए।",
       t4: "चिकित्सा अस्वीकरण", 
-      d4: "CocoMed एक शैक्षिक उपकरण है।"
+      d4: "MedicScanAI एक शैक्षिक उपकरण है।"
     },
     errors: {
       notMedicine: "यह दवा नहीं लगती।",
@@ -494,7 +494,7 @@ const UI_STRINGS = {
     nav: { home: "முகப்பு", history: "வரலாறு", guide: "வழிகாட்டி", settings: "அமைப்புகள்" },
     home: { 
       greeting: "வரவேற்கிறோம்", 
-      title: "CocoMed", 
+      title: "MedicScanAI", 
       subtitle: "உங்கள் மருந்து உதவியாளர்",
       scan: "ஸ்கேன் செய்ய தட்டவும்", 
       scanDesc: "மருந்தை ஸ்கேன் செய்ய கேமராவைப் பயன்படுத்தவும்",
@@ -572,7 +572,7 @@ const UI_STRINGS = {
       t3: "கேமரா அணுகல்", 
       d3: "மருந்து ஸ்கேனிங்கிற்கு மட்டுமே.",
       t4: "மருத்துவ மறுப்பு", 
-      d4: "CocoMed ஒரு கல்விக் கருவி."
+      d4: "MedicScanAI ஒரு கல்விக் கருவி."
     },
     errors: {
       notMedicine: "இது மருந்து போல் தெரியவில்லை.",
@@ -814,7 +814,7 @@ Use simple patient-friendly language.`;
       `${item.brandName} (${item.genericName}) - ${item.strength}\nManufacturer: ${item.manufacturer}\nScanned: ${new Date(item.date).toLocaleDateString()}`
     ).join('\n\n');
     if (navigator.share) {
-      navigator.share({ title: 'My CocoMed Medication List', text }).catch(() => {});
+      navigator.share({ title: 'My MedicScanAI Medication List', text }).catch(() => {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
       alert('Medication list copied to clipboard!');
@@ -1265,7 +1265,7 @@ Use simple patient-friendly language.`;
     <div className="hidden lg:flex flex-col w-64 h-screen sticky top-0 p-5 bg-white border-r border-slate-200">
       <div className="flex items-center gap-3 mb-10">
         <div className="w-11 h-11 rounded-xl bg-emerald-500 flex items-center justify-center shadow"><Pill className="text-white" size={22} /></div>
-        <div><h1 className="text-slate-800 font-bold text-lg">CocoMed</h1><p className="text-slate-400 text-xs">Medicine Scanner</p></div>
+        <div><h1 className="text-slate-800 font-bold text-lg">MedicScanAI</h1><p className="text-slate-400 text-xs">Medicine Scanner</p></div>
       </div>
       <nav className="space-y-1 flex-1">
         {[{ id: 'home', icon: Home }, { id: 'history', icon: History }, { id: 'guide', icon: BookOpen }, { id: 'settings', icon: Settings }].map(item => {
