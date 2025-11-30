@@ -691,6 +691,7 @@ export default function MedScanApp() {
     setScreen(newScreen);
     setError(null);
     setShowScanOptions(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [screen]);
 
   const goBack = useCallback(() => {
@@ -698,6 +699,7 @@ export default function MedScanApp() {
     else if (screen === 'privacy') setScreen('settings');
     else setScreen('home');
     setError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [screen, previousScreen]);
 
   const callGeminiAPI = async (payload) => {
